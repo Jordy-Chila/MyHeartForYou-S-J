@@ -805,6 +805,8 @@
     ball.style.opacity = 0; sheet.style.opacity = 0;
     tornEdge();
     setWrinkle(0);
+    const halfDiag = Math.hypot(sheet.offsetWidth, sheet.offsetHeight) / 2;
+    sheet.style.clipPath = "circle(0px at 50% 50%)";
     const t0 = performance.now();
     const SLOW = +new URLSearchParams(location.search).get("slow") || 1;   // sólo para pruebas: ?slow=6 ralentiza la animación
     let revealed = false, lastPaint = 0;
@@ -820,7 +822,10 @@
         ball.style.transform = 'translateY(' + (Math.sin(t / 380) * 2).toFixed(1) + 'px) scale(' + (0.08 + 0.6 * g).toFixed(3) +
           ') rotate(' + (-50 + 59 * g).toFixed(1) + 'deg)';
         const u = easeIO(clamp01((t - T_SWAP0) / T_UNFOLD));
-        sheet.style.opacity = swap.toFixed(3);
+        // la hoja brota desde el centro de la bolita (círculo que crece) mientras la bolita se desvanece
+        const bloom = easeIO(clamp01((t - 1700) / 2300));
+        sheet.style.opacity = clamp01((t - 1700) / 250).toFixed(3);
+        sheet.style.clipPath = bloom >= 1 ? "none" : "circle(" + (halfDiag * (0.3 + 0.8 * bloom)).toFixed(0) + "px at 50% 50%)";
         sheet.style.transform = 'scale(' + (0.5 + 0.5 * u).toFixed(3) + ') rotate(' + (9 * (1 - u)).toFixed(2) + 'deg)';
         setWrinkle(u);
       }
@@ -837,7 +842,7 @@
         letterTimers.push(setTimeout(() => lClose.classList.add('on'), stanzas.length * 550 + 600));
       }
       if (t < endT + 200 || !revealed) letterRaf = requestAnimationFrame(frame);
-      else { ball.style.opacity = 0; sheet.style.transform = 'none'; setWrinkle(1); }
+      else { ball.style.opacity = 0; sheet.style.transform = 'none'; sheet.style.clipPath = 'none'; setWrinkle(1); }
     }
     letterRaf = requestAnimationFrame(frame);
   }

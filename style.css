@@ -138,3 +138,4 @@
 body.letter-open .toast-wrap { display: none; }
 .ask-layer.dim.letter-dim { background: rgba(0, 0, 0, .96); }
 .letter-ball { transform-origin: center; }
+.letter-ball { z-index: 2; }
