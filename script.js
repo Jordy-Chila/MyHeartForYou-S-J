@@ -12,26 +12,28 @@
   scene.add(root);
 
   // ---------- Corazón: contorno paramétrico con volumen tipo almohada ----------
-  const HEART_COUNT = 9000;
+  const HEART_COUNT = 18000;
   const hPos = new Float32Array(HEART_COUNT * 3);
   const hSeed = new Float32Array(HEART_COUNT * 4);
   const K = 0.2;       // escala del contorno (x en [-16,16] -> ±3.2)
-  const T = 2.3;       // grosor máximo (profundidad)
+  const T = 2.1;       // grosor máximo (profundidad)
   for (let n = 0; n < HEART_COUNT; n++) {
     const t = Math.random() * Math.PI * 2;
     const hx = 16 * Math.pow(Math.sin(t), 3);
     const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
     const r = Math.random();
     let s, z, shell = 1;
-    if (r < 0.62) {                 // superficie en forma de almohada
-      s = Math.pow(Math.random(), 0.45);
-      z = (Math.random() < 0.5 ? -1 : 1) * T * Math.sqrt(Math.max(0, 1 - s * s)) + (Math.random() - 0.5) * 0.12;
-    } else if (r < 0.80) {          // borde que define la silueta
-      s = 1 - Math.random() * 0.03;
-      z = (Math.random() - 0.5) * 0.35;
-    } else {                        // pocas partículas interiores
+    const prof = (q) => Math.sqrt(Math.max(0, 1 - q * q));
+    if (r < 0.45) {                 // superficie con grosor (no una lámina fina)
       s = Math.sqrt(Math.random());
-      z = (Math.random() * 2 - 1) * T * Math.sqrt(Math.max(0, 1 - s * s)) * 0.9;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      z = side * T * prof(s) * (0.82 + Math.random() * 0.18) + (Math.random() - 0.5) * 0.3;
+    } else if (r < 0.60) {          // borde que define la silueta
+      s = 1 - Math.random() * 0.05;
+      z = (Math.random() - 0.5) * 0.7;
+    } else {                        // relleno volumétrico suave
+      s = Math.sqrt(Math.random());
+      z = (Math.random() * 2 - 1) * T * prof(s) * 0.85;
       shell = 0;
     }
     hPos[n * 3] = hx * s * K;
@@ -105,7 +107,7 @@
       float tw = 0.7 + 0.3 * sin(t * 2.0 + ph * 3.0); // centelleo
 
       if (uAmbient < 0.5) {
-        float sz = (1.5 + aSeed.x * 2.4) * (aSeed.w > 0.5 ? 1.0 : 0.7);
+        float sz = (1.7 + aSeed.x * 2.4) * (aSeed.w > 0.5 ? 1.0 : 0.8);
         gl_PointSize = sz * atten * uPx * (1.0 + 0.5 * uBeat);
         // gradiente romántico-futurista: magenta -> rosa -> toque cian en los bordes
         vec3 c1 = vec3(1.0, 0.12, 0.38);
@@ -115,7 +117,7 @@
         vec3 col = mix(c1, c2, m);
         col = mix(col, c3, smoothstep(0.82, 1.0, aSeed.x) * 0.55);
         vColor = col * (0.75 + 0.9 * uBeat);
-        vAlpha = tw * (aSeed.w > 0.5 ? 0.9 : 0.45);
+        vAlpha = tw * (aSeed.w > 0.5 ? 0.9 : 0.6);
       } else {
         gl_PointSize = (0.8 + aSeed.x * 1.6) * atten * uPx;
         vColor = mix(vec3(0.6, 0.8, 1.0), vec3(1.0, 0.6, 0.85), aSeed.z);
