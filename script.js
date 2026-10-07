@@ -25,16 +25,16 @@
   let n = 0;
   while (n < HEART_COUNT) {
     const x = (Math.random() * 2 - 1) * 1.3;
-    const y = (Math.random() * 2 - 1) * 1.3;
-    const z = (Math.random() * 2 - 1) * 1.1;
+    const y = (Math.random() * 2 - 1) * 0.8;   // profundidad
+    const z = (Math.random() * 2.6 - 1.3);      // vertical
     const f = heartF(x, y, z);
     if (f > 0) continue;
     // la mayoría en una cáscara cercana a la superficie; pocas en el interior (no sólido)
     const shell = f > -0.06;
     if (!shell && Math.random() > 0.07) continue;
     hPos[n * 3] = x * SCALE;
-    hPos[n * 3 + 1] = (y + 0.08) * SCALE;
-    hPos[n * 3 + 2] = z * SCALE * 0.95;
+    hPos[n * 3 + 1] = (z - 0.1) * SCALE;
+    hPos[n * 3 + 2] = y * SCALE * 1.5;
     hSeed[n * 4] = Math.random();
     hSeed[n * 4 + 1] = Math.random() * 6.2831;
     hSeed[n * 4 + 2] = Math.random();
