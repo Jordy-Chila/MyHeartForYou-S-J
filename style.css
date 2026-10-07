@@ -136,3 +136,5 @@
 .letter-close.on { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
 @media (max-height: 640px) { .letter-text { font-size: 14px; line-height: 1.55; padding: 26px 24px 34px; } }
 body.letter-open .toast-wrap { display: none; }
+.ask-layer.dim.letter-dim { background: rgba(0, 0, 0, .96); }
+.letter-ball { transform-origin: center; }

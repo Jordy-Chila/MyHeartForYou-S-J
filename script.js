@@ -777,39 +777,53 @@
   const easeOut = (x) => 1 - Math.pow(1 - x, 3);
   let letterRaf = 0, letterTimers = [], letterOpen = false, userScrolled = false;
 
-  function setWrinkle(u) {   // u: 0 = muy arrugado ... 1 = liso
-    wrDisp.setAttribute('scale', (95 * (1 - u)).toFixed(1));
-    wrLight.setAttribute('surfaceScale', (9 * (1 - u) + 0.7).toFixed(2));
+  function setWrinkle(u) {   // u: 0 = muy arrugado ... 1 = hoja con pliegues suaves
+    wrDisp.setAttribute('scale', (100 * Math.pow(1 - u, 1.2)).toFixed(1));
+    wrLight.setAttribute('surfaceScale', (10 * (1 - u) + 2).toFixed(2));
   }
+  // borde irregular, como papel rasgado
+  const paperEl = letter.querySelector('.letter-paper');
+  function tornEdge() {
+    const j = (m) => (Math.random() - 0.5) * 2 * m, N = 16, p = [];
+    for (let i = 0; i < N; i++) p.push([(i / N) * 100 + j(0.9), j(0.9)]);               // arriba
+    for (let i = 0; i < N * 1.6; i++) p.push([100 + j(0.9), (i / (N * 1.6)) * 100 + j(0.9)]);   // derecha
+    for (let i = 0; i < N; i++) p.push([100 - (i / N) * 100 + j(0.9), 100 + j(0.9)]);   // abajo
+    for (let i = 0; i < N * 1.6; i++) p.push([j(0.9), 100 - (i / (N * 1.6)) * 100 + j(0.9)]);   // izquierda
+    paperEl.style.clipPath = 'polygon(' + p.map((q) => q[0].toFixed(2) + '% ' + q[1].toFixed(2) + '%').join(',') + ')';
+  }
+  // Secuencia (inspirada en el video de referencia): sobre negro, una bolita diminuta se acerca girando,
+  // se abre en una hoja rasgada y arrugada, y las arrugas se van suavizando hasta quedar lisa.
   function openLetter() {
     letterOpen = true; userScrolled = false;
-    document.body.classList.add("letter-open");   // oculta las notificaciones mientras se lee
+    document.body.classList.add('letter-open');   // oculta las notificaciones mientras se lee
     card.hidden = true;
-    layer.classList.add('dim');
+    layer.classList.add('dim', 'letter-dim');
     letter.hidden = false;
     text.classList.remove('show');
     text.scrollTop = 0;
     lClose.classList.remove('on');
     ball.style.opacity = 0; sheet.style.opacity = 0;
+    tornEdge();
     setWrinkle(0);
     const t0 = performance.now();
     let revealed = false, lastPaint = 0;
-    const T_UNFOLD0 = 1500, T_UNFOLD = 4600;   // ms: cuándo empieza y cuánto dura el desarrugado
+    const T_SWAP0 = 1900, T_SWAP = 1100, T_UNFOLD = 3900, T_BALL = 2900;   // ms
     function frame(now) {
       const t = now - t0;
-      if (now - lastPaint > 30 || t > T_UNFOLD0 + T_UNFOLD) {   // ~30 fps: el filtro SVG es costoso
+      const endT = T_SWAP0 + T_UNFOLD;
+      if (now - lastPaint > 30 || t > endT) {   // ~30 fps: el filtro SVG es costoso
         lastPaint = now;
-        const bIn = easeOut(clamp01(t / 1000));
-        const swap = easeIO(clamp01((t - 1100) / 900));
-        ball.style.opacity = (bIn * (1 - swap)).toFixed(3);
-        ball.style.transform = 'translateY(' + ((1 - bIn) * 26 + Math.sin(t / 420) * 3).toFixed(1) + 'px) scale(' +
-          (0.78 + 0.22 * bIn + 0.3 * swap).toFixed(3) + ') rotate(' + (-8 * bIn + 14 * swap).toFixed(1) + 'deg)';
-        const u = easeIO(clamp01((t - T_UNFOLD0) / T_UNFOLD));
-        sheet.style.opacity = clamp01((t - 1150) / 700).toFixed(3);
-        sheet.style.transform = 'scale(' + (0.42 + 0.58 * u).toFixed(3) + ') rotate(' + (-13 * (1 - u)).toFixed(2) + 'deg)';
+        const g = easeIO(clamp01(t / T_BALL));
+        const swap = easeIO(clamp01((t - T_SWAP0) / T_SWAP));
+        ball.style.opacity = (clamp01(t / 350) * (1 - swap)).toFixed(3);
+        ball.style.transform = 'translateY(' + (Math.sin(t / 380) * 2).toFixed(1) + 'px) scale(' + (0.08 + 0.6 * g).toFixed(3) +
+          ') rotate(' + (-50 + 59 * g).toFixed(1) + 'deg)';
+        const u = easeIO(clamp01((t - T_SWAP0) / T_UNFOLD));
+        sheet.style.opacity = swap.toFixed(3);
+        sheet.style.transform = 'scale(' + (0.5 + 0.5 * u).toFixed(3) + ') rotate(' + (9 * (1 - u)).toFixed(2) + 'deg)';
         setWrinkle(u);
       }
-      if (!revealed && t > T_UNFOLD0 + T_UNFOLD * 0.72) {   // cuando casi está lisa, aparece el texto
+      if (!revealed && t > endT - T_UNFOLD * 0.22) {   // cuando casi está lisa, aparece el texto
         revealed = true;
         stanzas.forEach((st, i) => { st.style.transitionDelay = (i * 0.55).toFixed(2) + 's'; });
         text.classList.add('show');
@@ -821,7 +835,7 @@
         });
         letterTimers.push(setTimeout(() => lClose.classList.add('on'), stanzas.length * 550 + 600));
       }
-      if (t < T_UNFOLD0 + T_UNFOLD + 200 || !revealed) letterRaf = requestAnimationFrame(frame);
+      if (t < endT + 200 || !revealed) letterRaf = requestAnimationFrame(frame);
       else { ball.style.opacity = 0; sheet.style.transform = 'none'; setWrinkle(1); }
     }
     letterRaf = requestAnimationFrame(frame);
@@ -832,7 +846,7 @@
     cancelAnimationFrame(letterRaf);
     letterTimers.forEach(clearTimeout); letterTimers = [];
     close();
-    setTimeout(() => { letter.hidden = true; text.classList.remove('show'); }, 380);
+    setTimeout(() => { letter.hidden = true; text.classList.remove('show'); layer.classList.remove('letter-dim'); }, 380);
   }
   lClose.addEventListener('click', closeLetter);
   ['wheel', 'touchstart', 'pointerdown'].forEach((ev) => text.addEventListener(ev, () => { userScrolled = true; }, { passive: true }));
