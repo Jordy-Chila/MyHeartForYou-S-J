@@ -14,3 +14,6 @@
 }
 .sign { transition: opacity .7s ease; }
 canvas.hover-const { cursor: pointer; }
+@media (max-width: 520px) {
+  .hint, .sign { letter-spacing: .12em; font-size: 11px; }
+}
