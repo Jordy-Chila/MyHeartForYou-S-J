@@ -593,7 +593,7 @@
 
 // ---------- Botón "¿Quieres saber algo?" + aviso con la pregunta ----------
 (() => {
-  const QUESTION = '¿Quieres ser mi novia?';
+  const QUESTION = '¿Me amas?';
   const MAX_NO = 3;   // al pulsar "No" por cuarta vez aparece la imagen
   const ask = document.createElement('button');
   ask.className = 'ask-btn';
