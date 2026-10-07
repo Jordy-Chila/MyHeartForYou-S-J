@@ -178,61 +178,175 @@
   root.add(heart);
   root.add(ambient);
 
-  // ---------- Fondo estrellado: constelación de Tauro (nacimiento 05/05/2007) ----------
+  // ---------- Fondo estrellado: constelaciones que se transforman (Tauro <-> Libra) ----------
   const sky = new THREE.Group();
   scene.add(sky);   // fuera de "root": el fondo no gira con el corazón
-  const SKY_Z = -30, KDEG = 1.1;
-  const RA0 = 4.4, DEC0 = 19;
-  const toXY = (raH, dec) => [(RA0 - raH) * 15 * Math.cos(DEC0 * Math.PI / 180) * KDEG, (dec - DEC0) * KDEG];
+  const SKY_Z = -30;
+  const SLOTS = 20; // ambas constelaciones usan los mismos 20 "puntos": cada estrella migra a su nueva posición
+
   // [ascensión recta (h), declinación (°), brillo]
-  const TAU = {
-    alpha: [4.599, 16.51, 1.0],  // Aldebarán
-    beta:  [5.438, 28.61, 0.9],  // Elnath
-    zeta:  [5.627, 21.14, 0.65], // Tianguan
-    eps:   [4.477, 19.18, 0.65], // Ain
-    gamma: [4.330, 15.63, 0.6],
-    delta: [4.382, 17.54, 0.55],
-    theta: [4.478, 15.87, 0.7],
-    lambda:[4.011, 12.49, 0.5],
-    omi:   [3.413, 9.03, 0.45],
-    xi:    [3.453, 9.73, 0.45],
-    alcyone:[3.791, 24.11, 0.7], // Pléyades
+  const CONSTELLATIONS = {
+    tauro: {
+      label: '♉ Tauro · 05/05/2007',
+      main: [
+        [4.599, 16.51, 1.0],   // 0 Aldebarán
+        [5.438, 28.61, 0.9],   // 1 Elnath
+        [5.627, 21.14, 0.65],  // 2 Tianguan
+        [4.477, 19.18, 0.65],  // 3 Ain
+        [4.330, 15.63, 0.6],   // 4 γ
+        [4.382, 17.54, 0.55],  // 5 δ1
+        [4.478, 15.87, 0.7],   // 6 θ2
+        [4.011, 12.49, 0.5],   // 7 λ
+        [3.413, 9.03, 0.45],   // 8 ο
+        [3.453, 9.73, 0.45],   // 9 ξ
+        [3.791, 24.11, 0.7],   // 10 Alcyone (Pléyades)
+      ],
+      edges: [[2,0],[0,6],[6,4],[4,5],[5,3],[3,1],[4,7],[7,9],[9,8],[0,5]],
+      cluster: 10,             // las estrellas sobrantes forman las Pléyades
+    },
+    libra: {
+      label: '♎ Libra',
+      main: [
+        [14.848, -16.04, 0.9], // 0 Zubenelgenubi
+        [15.283, -9.38, 0.9],  // 1 Zubeneschamali
+        [15.592, -14.79, 0.6], // 2 Zubenelhakrabi
+        [15.068, -25.28, 0.55],// 3 σ
+        [15.617, -28.13, 0.5], // 4 υ
+        [15.645, -29.78, 0.5], // 5 τ
+        [15.000, -8.52, 0.6],  // 6 δ
+        [15.898, -16.73, 0.45],// 7 θ
+      ],
+      edges: [[0,1],[1,2],[2,4],[4,3],[3,0],[1,6],[4,5],[2,7],[0,1],[1,2]],
+      cluster: -1,
+    },
   };
-  const LINES = [["zeta","alpha"],["alpha","theta"],["theta","gamma"],["gamma","delta"],["delta","eps"],
-                 ["eps","beta"],["gamma","lambda"],["lambda","xi"],["xi","omi"],["alpha","delta"]];
-  const stars = [];   // x, y, z, size, alpha
-  const pos = {};
-  for (const [k, [ra, dec, b]] of Object.entries(TAU)) {
-    const [x, y] = toXY(ra, dec);
-    pos[k] = [x, y, SKY_Z];
-    stars.push(x, y, SKY_Z, 10 + b * 14, 0.7 + b * 0.3);
+
+  // Proyecta a un plano, centra y escala cada constelación para que ocupe un recuadro similar
+  function buildConstellation(c) {
+    const ra0 = c.main.reduce((a, s) => a + s[0], 0) / c.main.length;
+    const dec0 = c.main.reduce((a, s) => a + s[1], 0) / c.main.length;
+    const proj = (ra, dec) => [(ra0 - ra) * 15 * Math.cos(dec0 * Math.PI / 180), dec - dec0];
+    const pts = c.main.map(([ra, dec, b]) => [...proj(ra, dec), b]);
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
+    const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+    const sc = Math.min(30 / w, 17 / h);
+    const slots = pts.map(([x, y, b]) => [(x - cx) * sc, (y - cy) * sc, b]);
+    // estrellas sobrantes: cúmulo (Pléyades) o polvo estelar alrededor de la figura
+    while (slots.length < SLOTS) {
+      const base = c.cluster >= 0 ? slots[c.cluster] : slots[Math.floor(Math.random() * c.main.length)];
+      const r = c.cluster >= 0 ? 1.3 : 3.2;
+      slots.push([base[0] + (Math.random() - 0.5) * r * 2, base[1] + (Math.random() - 0.5) * r * 2, 0.15 + Math.random() * 0.15]);
+    }
+    return { slots, edges: c.edges, label: c.label };
   }
-  // cúmulo de las Pléyades: pequeñas estrellas alrededor de Alcyone
-  for (let i = 0; i < 9; i++) {
-    const [ax, ay] = toXY(3.791, 24.11);
-    stars.push(ax + (Math.random() - 0.5) * 2.6, ay + (Math.random() - 0.5) * 2.6, SKY_Z, 4 + Math.random() * 3, 0.5);
+  const CA = buildConstellation(CONSTELLATIONS.tauro);
+  const CB = buildConstellation(CONSTELLATIONS.libra);
+
+  // estrellas de la constelación (interpolación A -> B en el shader)
+  const cpA = new Float32Array(SLOTS * 3), cpB = new Float32Array(SLOTS * 3);
+  const cSz = new Float32Array(SLOTS * 2), cAl = new Float32Array(SLOTS * 2), cId = new Float32Array(SLOTS);
+  for (let i = 0; i < SLOTS; i++) {
+    cpA.set([CA.slots[i][0], CA.slots[i][1], SKY_Z], i * 3);
+    cpB.set([CB.slots[i][0], CB.slots[i][1], SKY_Z], i * 3);
+    const bA = CA.slots[i][2], bB = CB.slots[i][2];
+    cSz.set([10 + bA * 14, 10 + bB * 14], i * 2);
+    cAl.set([0.7 + bA * 0.3, 0.7 + bB * 0.3], i * 2);
+    cId[i] = i;
   }
+  const cGeo = new THREE.BufferGeometry();
+  cGeo.setAttribute('position', new THREE.BufferAttribute(cpA, 3));
+  cGeo.setAttribute('aPosB', new THREE.BufferAttribute(cpB, 3));
+  cGeo.setAttribute('aSz', new THREE.BufferAttribute(cSz, 2));
+  cGeo.setAttribute('aAl', new THREE.BufferAttribute(cAl, 2));
+  cGeo.setAttribute('aId', new THREE.BufferAttribute(cId, 1));
+  const glowFrag = /* glsl */`
+    varying float vA; varying vec3 vTint;
+    void main() {
+      vec2 c = gl_PointCoord - 0.5;
+      float d = length(c);
+      if (d > 0.5) discard;
+      float g = pow(smoothstep(0.5, 0.0, d), 2.2);
+      gl_FragColor = vec4(vTint * g, g * vA);
+    }`;
+  const consMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    uniforms: { uTime: { value: 0 }, uPx: { value: DPR }, uMix: { value: 0 } },
+    vertexShader: /* glsl */`
+      attribute vec3 aPosB; attribute vec2 aSz; attribute vec2 aAl; attribute float aId;
+      uniform float uTime; uniform float uPx; uniform float uMix;
+      varying float vA; varying vec3 vTint;
+      void main() {
+        float h = fract(sin(aId * 12.9898) * 43758.5453);
+        float arc = sin(3.14159265 * uMix);
+        // cada estrella viaja en una curva distinta (suave y orgánica) hacia su nuevo sitio
+        vec3 p = mix(position, aPosB, uMix);
+        p.xy += vec2(cos(h * 6.2831 + uTime * 0.4), sin(h * 6.2831 + uTime * 0.4)) * arc * (1.5 + h * 2.5);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        float sz = mix(aSz.x, aSz.y, uMix);
+        gl_PointSize = sz * uPx * (1.0 + 0.35 * arc);
+        vA = mix(aAl.x, aAl.y, uMix) * (0.8 + 0.2 * sin(uTime * (1.0 + h * 1.5) + h * 40.0)) * (1.0 - 0.25 * arc);
+        vTint = h < 0.5 ? vec3(0.8, 0.9, 1.0) : vec3(1.0, 0.92, 0.85);
+      }`,
+    fragmentShader: glowFrag,
+  });
+  const consPts = new THREE.Points(cGeo, consMat);
+  consPts.frustumCulled = false;
+  consPts.renderOrder = -2;
+  sky.add(consPts);
+
+  // líneas: se desvanecen mientras las estrellas migran y reaparecen con la nueva figura
+  const lA = [], lB = [];
+  CA.edges.forEach((e, i) => {
+    const eb = CB.edges[i];
+    for (const k of [0, 1]) {
+      lA.push(CA.slots[e[k]][0], CA.slots[e[k]][1], SKY_Z);
+      lB.push(CB.slots[eb[k]][0], CB.slots[eb[k]][1], SKY_Z);
+    }
+  });
+  const lGeo = new THREE.BufferGeometry();
+  lGeo.setAttribute('position', new THREE.Float32BufferAttribute(lA, 3));
+  lGeo.setAttribute('aPosB', new THREE.Float32BufferAttribute(lB, 3));
+  const lineMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    uniforms: { uMix: { value: 0 } },
+    vertexShader: /* glsl */`
+      attribute vec3 aPosB; uniform float uMix; varying float vA;
+      void main() {
+        vec3 p = mix(position, aPosB, uMix);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        vA = 0.35 * pow(abs(2.0 * uMix - 1.0), 2.0);
+      }`,
+    fragmentShader: /* glsl */`
+      varying float vA;
+      void main() { gl_FragColor = vec4(vec3(0.5, 0.66, 1.0) * vA, vA); }`,
+  });
+  const lines = new THREE.LineSegments(lGeo, lineMat);
+  lines.frustumCulled = false;
+  lines.renderOrder = -3;
+  sky.add(lines);
+
   // estrellas de fondo: miles, de brillo variable pero siempre menor que la constelación
+  const bg = [];   // x, y, z, size, alpha
   for (let i = 0; i < 9000; i++) {
     const x = (Math.random() * 2 - 1) * 65, y = (Math.random() * 2 - 1) * 42;
     const z = SKY_Z - Math.random() * 15;
-    const q = Math.random();
-    const big = q < 0.1;                          // algunas más brillantes (aun así < constelación)
-    stars.push(x, y, z, big ? 3.2 + Math.random() * 1.8 : 1.4 + Math.random() * 1.8, big ? 0.45 + Math.random() * 0.2 : 0.22 + Math.random() * 0.3);
+    const big = Math.random() < 0.1;
+    bg.push(x, y, z, big ? 3.2 + Math.random() * 1.8 : 1.4 + Math.random() * 1.8, big ? 0.45 + Math.random() * 0.2 : 0.22 + Math.random() * 0.3);
   }
-  const sp = new Float32Array(stars.length / 5 * 3), ss = new Float32Array(stars.length / 5), sa = new Float32Array(stars.length / 5);
+  const sp = new Float32Array(bg.length / 5 * 3), ss = new Float32Array(bg.length / 5), sa = new Float32Array(bg.length / 5);
   for (let i = 0; i < ss.length; i++) {
-    sp[i * 3] = stars[i * 5]; sp[i * 3 + 1] = stars[i * 5 + 1]; sp[i * 3 + 2] = stars[i * 5 + 2];
-    ss[i] = stars[i * 5 + 3]; sa[i] = stars[i * 5 + 4];
+    sp[i * 3] = bg[i * 5]; sp[i * 3 + 1] = bg[i * 5 + 1]; sp[i * 3 + 2] = bg[i * 5 + 2];
+    ss[i] = bg[i * 5 + 3]; sa[i] = bg[i * 5 + 4];
   }
   const starGeo = new THREE.BufferGeometry();
-  starGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
-  starGeo.setAttribute("aSize", new THREE.BufferAttribute(ss, 1));
-  starGeo.setAttribute("aAlpha", new THREE.BufferAttribute(sa, 1));
+  starGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  starGeo.setAttribute('aSize', new THREE.BufferAttribute(ss, 1));
+  starGeo.setAttribute('aAlpha', new THREE.BufferAttribute(sa, 1));
   const starMat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
     uniforms: { uTime: { value: 0 }, uPx: { value: DPR } },
-    vertexShader: `
+    vertexShader: /* glsl */`
       attribute float aSize; attribute float aAlpha;
       uniform float uTime; uniform float uPx;
       varying float vA; varying vec3 vTint;
@@ -243,30 +357,33 @@
         gl_PointSize = aSize * uPx;
         vA = aAlpha * (0.6 + 0.4 * sin(uTime * (0.8 + h * 2.2) + h * 60.0));
       }`,
-    fragmentShader: `
-      varying float vA; varying vec3 vTint;
-      void main() {
-        vec2 c = gl_PointCoord - 0.5;
-        float d = length(c);
-        if (d > 0.5) discard;
-        float g = pow(smoothstep(0.5, 0.0, d), 2.2);
-        gl_FragColor = vec4(vTint * g, g * vA);
-      }`,
+    fragmentShader: glowFrag,
   });
   const starPts = new THREE.Points(starGeo, starMat);
   starPts.frustumCulled = false;
-  starPts.renderOrder = -2;
+  starPts.renderOrder = -4;
   sky.add(starPts);
-  // líneas de la constelación (muy sutiles)
-  const lp = [];
-  for (const [a, b] of LINES) lp.push(...pos[a], ...pos[b]);
-  const lineGeo = new THREE.BufferGeometry();
-  lineGeo.setAttribute("position", new THREE.Float32BufferAttribute(lp, 3));
-  const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
-    color: 0x7fa8ff, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
-  }));
-  lines.renderOrder = -3;
-  sky.add(lines);
+
+  // ciclo: Tauro (pausa) -> Libra (pausa) -> Tauro ...
+  const HOLD = 14, MORPH = 5;
+  const CYCLE = 2 * (HOLD + MORPH);
+  const ease = (x) => x * x * x * (x * (x * 6 - 15) + 10);   // smootherstep
+  const skyMix = (time) => {
+    const t = time % CYCLE;
+    if (t < HOLD) return 0;
+    if (t < HOLD + MORPH) return ease((t - HOLD) / MORPH);
+    if (t < 2 * HOLD + MORPH) return 1;
+    return 1 - ease((t - 2 * HOLD - MORPH) / MORPH);
+  };
+  const sign = document.getElementById('sign');
+  let signShown = 'A';
+  function updateSign(mix) {
+    const want = mix < 0.5 ? 'A' : 'B';
+    if (want === signShown) return;
+    signShown = want;
+    sign.style.opacity = 0;
+    setTimeout(() => { sign.textContent = want === 'A' ? CA.label : CB.label; sign.style.opacity = 1; }, 700);
+  }
 
   // ---------- Resize / encuadre responsivo ----------
   function resize() {
@@ -285,7 +402,7 @@
     // la constelación (≈34×21 u) se ajusta al ancho visible del fondo; en vertical se sube sobre el corazón
     const visH = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (Math.abs(SKY_Z) + camera.position.z);
     const visW = visH * camera.aspect;
-    sky.scale.setScalar(THREE.MathUtils.clamp(visW * 0.95 / 34, 0.55, 1.25));
+    sky.scale.setScalar(THREE.MathUtils.clamp(visW * 0.95 / 32, 0.55, 1.25));
     sky.position.y = camera.aspect < 1 ? THREE.MathUtils.clamp((1.1 - camera.aspect) * 16, 0, 9) : visH * 0.06;
   }
   window.addEventListener('resize', resize);
@@ -343,6 +460,11 @@
     heart.material.uniforms.uBeat.value = beat;
     ambient.material.uniforms.uTime.value = time;
     starMat.uniforms.uTime.value = time;
+    const mix = skyMix(time);
+    consMat.uniforms.uTime.value = time;
+    consMat.uniforms.uMix.value = mix;
+    lineMat.uniforms.uMix.value = mix;
+    updateSign(mix);
     ambient.material.uniforms.uBeat.value = beat;
 
     // leve balanceo de cámara para dar sensación cinematográfica

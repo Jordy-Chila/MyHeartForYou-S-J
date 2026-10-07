@@ -12,3 +12,4 @@
   font: 300 12px/1 system-ui, sans-serif; letter-spacing: .3em; text-transform: uppercase;
   color: rgba(150, 180, 255, .45); pointer-events: none;
 }
+.sign { transition: opacity .7s ease; }
