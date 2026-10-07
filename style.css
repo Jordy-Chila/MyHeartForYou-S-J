@@ -6,3 +6,9 @@
     font: 300 12px/1 system-ui, sans-serif; letter-spacing: .3em; text-transform: uppercase;
     color: rgba(255, 150, 190, .6); pointer-events: none;
   }
+
+.sign {
+  position: fixed; top: 16px; left: 0; right: 0; text-align: center;
+  font: 300 12px/1 system-ui, sans-serif; letter-spacing: .3em; text-transform: uppercase;
+  color: rgba(150, 180, 255, .45); pointer-events: none;
+}

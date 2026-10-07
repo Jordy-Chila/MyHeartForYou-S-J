@@ -178,12 +178,99 @@
   root.add(heart);
   root.add(ambient);
 
+  // ---------- Fondo estrellado: constelación de Tauro (nacimiento 05/05/2007) ----------
+  const sky = new THREE.Group();
+  scene.add(sky);   // fuera de "root": el fondo no gira con el corazón
+  const SKY_Z = -30, KDEG = 1.1;
+  const RA0 = 4.4, DEC0 = 19;
+  const toXY = (raH, dec) => [(RA0 - raH) * 15 * Math.cos(DEC0 * Math.PI / 180) * KDEG, (dec - DEC0) * KDEG];
+  // [ascensión recta (h), declinación (°), brillo]
+  const TAU = {
+    alpha: [4.599, 16.51, 1.0],  // Aldebarán
+    beta:  [5.438, 28.61, 0.9],  // Elnath
+    zeta:  [5.627, 21.14, 0.65], // Tianguan
+    eps:   [4.477, 19.18, 0.65], // Ain
+    gamma: [4.330, 15.63, 0.6],
+    delta: [4.382, 17.54, 0.55],
+    theta: [4.478, 15.87, 0.7],
+    lambda:[4.011, 12.49, 0.5],
+    omi:   [3.413, 9.03, 0.45],
+    xi:    [3.453, 9.73, 0.45],
+    alcyone:[3.791, 24.11, 0.7], // Pléyades
+  };
+  const LINES = [["zeta","alpha"],["alpha","theta"],["theta","gamma"],["gamma","delta"],["delta","eps"],
+                 ["eps","beta"],["gamma","lambda"],["lambda","xi"],["xi","omi"],["alpha","delta"]];
+  const stars = [];   // x, y, z, size, alpha
+  const pos = {};
+  for (const [k, [ra, dec, b]] of Object.entries(TAU)) {
+    const [x, y] = toXY(ra, dec);
+    pos[k] = [x, y, SKY_Z];
+    stars.push(x, y, SKY_Z, 7 + b * 11, 0.55 + b * 0.4);
+  }
+  // cúmulo de las Pléyades: pequeñas estrellas alrededor de Alcyone
+  for (let i = 0; i < 9; i++) {
+    const [ax, ay] = toXY(3.791, 24.11);
+    stars.push(ax + (Math.random() - 0.5) * 2.6, ay + (Math.random() - 0.5) * 2.6, SKY_Z, 4 + Math.random() * 3, 0.5);
+  }
+  // estrellas de fondo (muy tenues)
+  for (let i = 0; i < 900; i++) {
+    const x = (Math.random() * 2 - 1) * 60, y = (Math.random() * 2 - 1) * 40;
+    const z = SKY_Z - Math.random() * 15;
+    stars.push(x, y, z, 1.2 + Math.random() * 2.2, 0.15 + Math.random() * 0.35);
+  }
+  const sp = new Float32Array(stars.length / 5 * 3), ss = new Float32Array(stars.length / 5), sa = new Float32Array(stars.length / 5);
+  for (let i = 0; i < ss.length; i++) {
+    sp[i * 3] = stars[i * 5]; sp[i * 3 + 1] = stars[i * 5 + 1]; sp[i * 3 + 2] = stars[i * 5 + 2];
+    ss[i] = stars[i * 5 + 3]; sa[i] = stars[i * 5 + 4];
+  }
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
+  starGeo.setAttribute("aSize", new THREE.BufferAttribute(ss, 1));
+  starGeo.setAttribute("aAlpha", new THREE.BufferAttribute(sa, 1));
+  const starMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    uniforms: { uTime: { value: 0 }, uPx: { value: DPR } },
+    vertexShader: `
+      attribute float aSize; attribute float aAlpha;
+      uniform float uTime; uniform float uPx;
+      varying float vA;
+      void main() {
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uPx;
+        vA = aAlpha * (0.8 + 0.2 * sin(uTime * 1.3 + position.x * 12.9 + position.y * 7.7));
+      }`,
+    fragmentShader: `
+      varying float vA;
+      void main() {
+        vec2 c = gl_PointCoord - 0.5;
+        float d = length(c);
+        if (d > 0.5) discard;
+        float g = pow(smoothstep(0.5, 0.0, d), 2.2);
+        gl_FragColor = vec4(vec3(0.75, 0.85, 1.0) * g, g * vA);
+      }`,
+  });
+  const starPts = new THREE.Points(starGeo, starMat);
+  starPts.frustumCulled = false;
+  starPts.renderOrder = -2;
+  sky.add(starPts);
+  // líneas de la constelación (muy sutiles)
+  const lp = [];
+  for (const [a, b] of LINES) lp.push(...pos[a], ...pos[b]);
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute("position", new THREE.Float32BufferAttribute(lp, 3));
+  const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
+    color: 0x7fa8ff, transparent: true, opacity: 0.22, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+  }));
+  lines.renderOrder = -3;
+  sky.add(lines);
+
   // ---------- Resize / encuadre responsivo ----------
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     camera.aspect = w / h;
+    sky.scale.setScalar(Math.min(1, camera.aspect * 1.05));
     // asegura que el corazón (~±3.4 de ancho) quepa tanto en pantallas anchas como en móviles
     const halfW = 4.4;
     const fovV = THREE.MathUtils.degToRad(camera.fov);
@@ -247,6 +334,7 @@
     heart.material.uniforms.uTime.value = time;
     heart.material.uniforms.uBeat.value = beat;
     ambient.material.uniforms.uTime.value = time;
+    starMat.uniforms.uTime.value = time;
     ambient.material.uniforms.uBeat.value = beat;
 
     // leve balanceo de cámara para dar sensación cinematográfica
