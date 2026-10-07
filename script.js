@@ -533,3 +533,60 @@
   }
   animate();
 })();
+
+// ---------- Notificaciones que aparecen a la derecha cada cierto tiempo ----------
+(() => {
+  // Edita aquí los mensajes: título + texto
+  const NOTES = [
+    { t: 'Para Samantha', m: 'Cada latido de este corazón lleva tu nombre.' },
+    { t: 'Dos estrellas', m: 'Tauro y Libra: cielos distintos, el mismo corazón.' },
+    { t: 'Una pausa', m: 'Respira. Mira las estrellas. Aquí alguien piensa en ti.' },
+    { t: 'Recordatorio', m: 'Hoy también eres la mejor parte de mi día.' },
+    { t: 'Mensaje de Jordy', m: 'Si pudiera, te regalaría una constelación entera.' },
+    { t: 'Dato curioso', m: 'Un corazón late unas 100.000 veces al día. El mío, casi todas por ti.' },
+  ];
+  const FIRST_DELAY = 6000;     // primera notificación
+  const EVERY = [18000, 28000]; // espera aleatoria entre notificaciones (ms)
+  const VISIBLE = 7000;         // tiempo en pantalla (ms)
+
+  const wrap = document.createElement('div');
+  wrap.className = 'toast-wrap';
+  wrap.setAttribute('aria-live', 'polite');
+  document.body.appendChild(wrap);
+
+  const HEART = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6fa5"/><stop offset="1" stop-color="#ff2d6f"/></linearGradient></defs><path fill="url(#tg)" d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 4.5 6.4 4.5c2.1 0 3.7 1.1 5.6 3.2 1.9-2.1 3.5-3.2 5.6-3.2 3.7 0 5.5 3.9 4 7.3C19.5 16.4 12 21 12 21z"/></svg>';
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  let idx = Math.floor(Math.random() * NOTES.length);
+
+  function show() {
+    const n = NOTES[idx++ % NOTES.length];
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    el.innerHTML =
+      '<div class="t-head"><span class="t-ico">' + HEART + '</span><span class="t-app">Mi corazón</span>' +
+      '<button class="t-close" aria-label="Cerrar">&times;</button></div>' +
+      '<div class="t-title"></div><div class="t-text"></div><div class="t-bar"></div>';
+    el.querySelector('.t-title').textContent = n.t;
+    el.querySelector('.t-text').textContent = n.m;
+    el.querySelector('.t-bar').style.animationDuration = VISIBLE + 'ms';
+    wrap.appendChild(el);
+
+    let timer = 0, closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      clearTimeout(timer);
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 700);
+      setTimeout(show, rnd(EVERY[0], EVERY[1]));
+    };
+    const arm = (ms) => { clearTimeout(timer); timer = setTimeout(close, ms); };
+    el.querySelector('.t-close').addEventListener('click', close);
+    el.addEventListener('mouseenter', () => { clearTimeout(timer); el.classList.add('hold'); });
+    el.addEventListener('mouseleave', () => { el.classList.remove('hold'); arm(2500); });
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    arm(VISIBLE);
+  }
+  setTimeout(show, FIRST_DELAY);
+})();
