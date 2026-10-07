@@ -806,10 +806,11 @@
     tornEdge();
     setWrinkle(0);
     const t0 = performance.now();
+    const SLOW = +new URLSearchParams(location.search).get("slow") || 1;   // sólo para pruebas: ?slow=6 ralentiza la animación
     let revealed = false, lastPaint = 0;
     const T_SWAP0 = 1900, T_SWAP = 1100, T_UNFOLD = 3900, T_BALL = 2900;   // ms
     function frame(now) {
-      const t = now - t0;
+      const t = (now - t0) / SLOW;
       const endT = T_SWAP0 + T_UNFOLD;
       if (now - lastPaint > 30 || t > endT) {   // ~30 fps: el filtro SVG es costoso
         lastPaint = now;
