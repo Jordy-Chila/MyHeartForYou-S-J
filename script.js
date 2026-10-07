@@ -375,7 +375,7 @@
     if (t < 2 * HOLD + MORPH) return 1;
     return 1 - ease((t - 2 * HOLD - MORPH) / MORPH);
   };
-  const sign = document.getElementById('sign');
+  const sign = document.getElementById('sign') || document.createElement('div');
   let signShown = 'A';
   function updateSign(mix) {
     const want = mix < 0.5 ? 'A' : 'B';
