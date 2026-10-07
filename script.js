@@ -1,6 +1,8 @@
 (() => {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  // ¿móvil o pantalla táctil pequeña? -> menos partículas y menor resolución interna para mantener los 60 fps
+  const IS_MOBILE = window.matchMedia('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 700;
+  const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });   // los puntos se suavizan en el shader
+  const DPR = Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.5 : 2);
   renderer.setPixelRatio(DPR);
   renderer.setClearColor(0x000000, 1);
   document.body.appendChild(renderer.domElement);
@@ -174,6 +176,8 @@
   };
 
   const heart = makePoints(hPos, hSeed, false);
+  const HEART_BASE = IS_MOBILE ? Math.round(HEART_COUNT * 0.5) : HEART_COUNT;
+  heart.geometry.setDrawRange(0, HEART_BASE);
   const ambient = makePoints(aPos, aSeed, true);
   root.add(heart);
   root.add(ambient);
@@ -362,6 +366,8 @@
   const starPts = new THREE.Points(starGeo, starMat);
   starPts.frustumCulled = false;
   starPts.renderOrder = -4;
+  const STARS_BASE = IS_MOBILE ? 4500 : 9000;
+  starGeo.setDrawRange(0, STARS_BASE);
   sky.add(starPts);
 
   // ciclo: Tauro (pausa) -> Libra (pausa) -> Tauro ..., o cambio inmediato si el usuario toca la constelación
@@ -518,10 +524,30 @@
 
   // ---------- Bucle ----------
   const clock = new THREE.Clock();
+  // Si el dispositivo no llega a ~33 fps durante 2 s, baja la calidad un escalón (máx. 2)
+  let quality = 0, emaDt = 0.016, slowT = 0;
+  function setQuality(level) {
+    quality = level;
+    const ratio = DPR * [1, 0.78, 0.6][level];
+    renderer.setPixelRatio(ratio);
+    resize();
+    heart.material.uniforms.uPx.value = ratio * 1.6;
+    ambient.material.uniforms.uPx.value = ratio * 1.6;
+    starMat.uniforms.uPx.value = ratio;
+    consMat.uniforms.uPx.value = ratio;
+    heart.geometry.setDrawRange(0, Math.round(HEART_BASE * [1, 0.7, 0.45][level]));
+    starGeo.setDrawRange(0, Math.round(STARS_BASE * [1, 0.7, 0.45][level]));
+  }
   function animate() {
     requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const rawDt = clock.getDelta();
+    const dt = Math.min(rawDt, 0.05);
     const time = clock.elapsedTime;
+    if (document.body.classList.contains('letter-open')) return;   // la carta tapa todo: no gastar GPU detrás
+    if (time > 3 && quality < 2) {
+      emaDt += (Math.min(rawDt, 0.2) - emaDt) * 0.08;
+      if (emaDt > 0.031) { slowT += rawDt; if (slowT > 2) { setQuality(quality + 1); slowT = 0; emaDt = 0.016; } } else slowT = 0;
+    }
 
     const bpm = BPM * (1 + 0.04 * Math.sin(time * 0.9));   // arritmia sinusal respiratoria (±4 %)
     beatPhase = (beatPhase + dt * bpm / 60) % 1;
@@ -736,22 +762,6 @@
     '- Jordy Chila.',
   ];
 
-  // filtro SVG que "arruga" la hoja (desplazamiento + sombras de pliegues); se anima hasta quedar lisa
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svgBox = document.createElement('div');
-  svgBox.innerHTML =
-    '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>' +
-    '<filter id="wrinkle" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">' +
-      '<feTurbulence type="fractalNoise" baseFrequency="0.011 0.015" numOctaves="3" seed="11" result="n"/>' +
-      '<feDisplacementMap id="wr-disp" in="SourceGraphic" in2="n" scale="95" xChannelSelector="R" yChannelSelector="G" result="d"/>' +
-      '<feDiffuseLighting id="wr-light" in="n" surfaceScale="9" diffuseConstant="1.05" lighting-color="#ffffff" result="l">' +
-        '<feDistantLight azimuth="235" elevation="58"/></feDiffuseLighting>' +
-      '<feComposite in="d" in2="l" operator="arithmetic" k1="1.15" k2="0" k3="0" k4="0"/>' +
-    '</filter></defs></svg>';
-  document.body.appendChild(svgBox.firstChild);
-  const wrDisp = document.getElementById('wr-disp');
-  const wrLight = document.getElementById('wr-light');
-
   const letter = document.createElement('div');
   letter.className = 'letter';
   letter.hidden = true;
@@ -759,7 +769,7 @@
   letter.setAttribute('aria-label', 'Carta');
   letter.innerHTML =
     '<img class="letter-ball" src="papel.png" alt="">' +
-    '<div class="letter-sheet"><div class="letter-paper"></div><div class="letter-text"></div></div>' +
+    '<div class="letter-sheet"><div class="letter-paper"><i class="cr cr-a"></i><i class="cr cr-b"></i></div><div class="letter-text"></div></div>' +
     '<button class="letter-close">Cerrar</button>';
   layer.appendChild(letter);
   const ball = letter.querySelector('.letter-ball');
@@ -777,9 +787,10 @@
   const easeOut = (x) => 1 - Math.pow(1 - x, 3);
   let letterRaf = 0, letterTimers = [], letterOpen = false, userScrolled = false;
 
+  const crA = letter.querySelector('.cr-a'), crB = letter.querySelector('.cr-b');
   function setWrinkle(u) {   // u: 0 = muy arrugado ... 1 = hoja con pliegues suaves
-    wrDisp.setAttribute('scale', (100 * Math.pow(1 - u, 1.2)).toFixed(1));
-    wrLight.setAttribute('surfaceScale', (10 * (1 - u) + 2).toFixed(2));
+    crA.style.opacity = (1 - 0.7 * u).toFixed(3);
+    crB.style.opacity = (0.95 * (1 - u) * (1 - u)).toFixed(3);
   }
   // borde irregular, como papel rasgado
   const paperEl = letter.querySelector('.letter-paper');
@@ -809,13 +820,12 @@
     sheet.style.clipPath = "circle(0px at 50% 50%)";
     const t0 = performance.now();
     const SLOW = +new URLSearchParams(location.search).get("slow") || 1;   // sólo para pruebas: ?slow=6 ralentiza la animación
-    let revealed = false, lastPaint = 0;
+    let revealed = false;
     const T_SWAP0 = 1900, T_SWAP = 1100, T_UNFOLD = 3900, T_BALL = 2900;   // ms
     function frame(now) {
       const t = (now - t0) / SLOW;
       const endT = T_SWAP0 + T_UNFOLD;
-      if (now - lastPaint > 30 || t > endT) {   // ~30 fps: el filtro SVG es costoso
-        lastPaint = now;
+      {   // sólo transform/opacity/clip-path: se anima a la frecuencia completa de la pantalla
         const g = easeIO(clamp01(t / T_BALL));
         const swap = easeIO(clamp01((t - T_SWAP0) / T_SWAP));
         ball.style.opacity = (clamp01(t / 350) * (1 - swap)).toFixed(3);
@@ -826,7 +836,9 @@
         const bloom = easeIO(clamp01((t - 1700) / 2300));
         sheet.style.opacity = clamp01((t - 1700) / 250).toFixed(3);
         sheet.style.clipPath = bloom >= 1 ? "none" : "circle(" + (halfDiag * (0.3 + 0.8 * bloom)).toFixed(0) + "px at 50% 50%)";
-        sheet.style.transform = 'scale(' + (0.5 + 0.5 * u).toFixed(3) + ') rotate(' + (9 * (1 - u)).toFixed(2) + 'deg)';
+        // la hoja se "desdobla" en 3D: empieza inclinada y gira hasta quedar plana
+        sheet.style.transform = 'perspective(1100px) rotateX(' + (34 * (1 - u)).toFixed(2) + 'deg) rotateY(' + (-24 * (1 - u)).toFixed(2) +
+          'deg) rotate(' + (9 * (1 - u)).toFixed(2) + 'deg) scale(' + (0.5 + 0.5 * u).toFixed(3) + ')';
         setWrinkle(u);
       }
       if (!revealed && t > endT - T_UNFOLD * 0.22) {   // cuando casi está lisa, aparece el texto
