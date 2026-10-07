@@ -622,7 +622,25 @@
 
 // ---------- Botón "¿Quieres saber algo?" + aviso con la pregunta ----------
 (() => {
-  const QUESTION = '¿Me amas?';
+  // Preguntas capciosas: la respuesta obvia es "Sí". Cada una trae su mensaje de "Sí" y su texto para la imagen.
+  // Edita o agrega las tuyas: { q: pregunta, stop: texto de la imagen, yes: mensaje al aceptar }
+  const ITEMS = [
+    { q: '¿Me amas?', stop: 'acepta que me amas', yes: '¡Sí! Sabía que lo dirías. Te amo, Samantha.' },
+    { q: '¿Verdad que piensas en mí más de lo que admites?', stop: 'acepta que piensas en mí', yes: 'Lo sabía. Yo también pienso en ti, todo el día.' },
+    { q: '¿Me extrañas cuando no estoy?', stop: 'acepta que me extrañas', yes: 'Yo también te extraño. Siempre, Samantha.' },
+    { q: '¿Soy tu persona favorita?', stop: 'acepta que soy tu persona favorita', yes: 'Tú eres la mía. Desde siempre.' },
+    { q: '¿Te hago sonreír aunque no quieras?', stop: 'acepta que te hago sonreír', yes: 'Esa sonrisa es mi parte favorita del día.' },
+    { q: '¿Admites que este corazón es el más bonito que has visto?', stop: 'acepta que es el más bonito', yes: 'Lo hice pensando en ti, así que tenía que serlo.' },
+    { q: '¿Me darías un abrazo ahora mismo?', stop: 'acepta que quieres un abrazo', yes: 'Abrazo anotado. Pendiente, con intereses.' },
+    { q: '¿Verdad que sonríes cuando ves mi nombre en tu pantalla?', stop: 'acepta que sonríes por mí', yes: 'Y yo cuando veo el tuyo. Empate.' },
+  ];
+  let current = ITEMS[0], lastIdx = -1;
+  function pickItem() {
+    let i;
+    do { i = Math.floor(Math.random() * ITEMS.length); } while (ITEMS.length > 1 && i === lastIdx);
+    lastIdx = i;
+    current = ITEMS[i];
+  }
   const MAX_NO = 3;   // al pulsar "No" por cuarta vez aparece la imagen
   const ask = document.createElement('button');
   ask.className = 'ask-btn';
@@ -650,6 +668,7 @@
   const q = layer.querySelector('.ask-q');
   const actions = layer.querySelector('.ask-actions');
   const head = layer.querySelector('.ask-head span:last-child');
+  const stopText = layer.querySelector('.ask-stop p');
   let noCount = 0;
 
   function center() {
@@ -663,7 +682,9 @@
   function open() {
     noCount = 0;
     head.textContent = 'Aviso';
-    q.textContent = QUESTION;
+    pickItem();
+    q.textContent = current.q;
+    stopText.textContent = 'Deja de darle "No" y ' + current.stop;
     actions.hidden = false;
     stop.hidden = true;
     card.hidden = false;
@@ -707,7 +728,7 @@
     card.hidden = false;
     layer.classList.remove('dim');
     head.textContent = 'Aviso';
-    q.textContent = '¡Sí! Sabía que lo dirías. Te amo, Samantha.';
+    q.textContent = current.yes;
     actions.hidden = true;
     let b = card.querySelector('.ask-done');
     if (!b) {
