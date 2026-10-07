@@ -783,6 +783,7 @@
   }
   function openLetter() {
     letterOpen = true; userScrolled = false;
+    document.body.classList.add("letter-open");   // oculta las notificaciones mientras se lee
     card.hidden = true;
     layer.classList.add('dim');
     letter.hidden = false;
@@ -827,6 +828,7 @@
   }
   function closeLetter() {
     letterOpen = false;
+    document.body.classList.remove("letter-open");
     cancelAnimationFrame(letterRaf);
     letterTimers.forEach(clearTimeout); letterTimers = [];
     close();
