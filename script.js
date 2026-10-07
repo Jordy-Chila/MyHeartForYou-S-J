@@ -720,6 +720,123 @@
       setTimeout(() => h.remove(), 6500);
     }
   }
+  // ---------- Carta: papel arrugado que se desarruga y revela el poema ----------
+  const POEM_TITLE = '[ Latente ]';
+  const POEM = [
+    'No sé cuándo\nempecé a mirarte distinto.',
+    'Yo,\naprendiendo a entenderte\nsin apurarme,\nporque lo tuyo no es simple.',
+    'Eres de las que no piden ayuda,\nporque prefieren demostrar\nque pueden solas.',
+    'Observas más de lo que hablas,\npiensas más de lo que muestras.',
+    'Y aun así,\nte gusta que te cuiden,\nque te consientan…\naunque no lo pidas en voz alta.',
+    'Radiante,\nincluso cuando decides no serlo.',
+    'Yo,\nmirándote con cuidado,\ncomo quien entiende\nque no todo en ti\nse deja ver de una vez.',
+    'No creo poder explicarte.',
+    'Pero si me dejas,\nprefiero quedarme ahí…',
+    'siendo un turista\nde algo que no es mío,\npero que igual\nno quiero dejar de mirar.',
+    '- Jordy Chila.',
+  ];
+
+  // filtro SVG que "arruga" la hoja (desplazamiento + sombras de pliegues); se anima hasta quedar lisa
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svgBox = document.createElement('div');
+  svgBox.innerHTML =
+    '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>' +
+    '<filter id="wrinkle" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">' +
+      '<feTurbulence type="fractalNoise" baseFrequency="0.011 0.015" numOctaves="3" seed="11" result="n"/>' +
+      '<feDisplacementMap id="wr-disp" in="SourceGraphic" in2="n" scale="95" xChannelSelector="R" yChannelSelector="G" result="d"/>' +
+      '<feDiffuseLighting id="wr-light" in="n" surfaceScale="9" diffuseConstant="1.05" lighting-color="#ffffff" result="l">' +
+        '<feDistantLight azimuth="235" elevation="58"/></feDiffuseLighting>' +
+      '<feComposite in="d" in2="l" operator="arithmetic" k1="1.15" k2="0" k3="0" k4="0"/>' +
+    '</filter></defs></svg>';
+  document.body.appendChild(svgBox.firstChild);
+  const wrDisp = document.getElementById('wr-disp');
+  const wrLight = document.getElementById('wr-light');
+
+  const letter = document.createElement('div');
+  letter.className = 'letter';
+  letter.hidden = true;
+  letter.setAttribute('role', 'dialog');
+  letter.setAttribute('aria-label', 'Carta');
+  letter.innerHTML =
+    '<img class="letter-ball" src="papel.png" alt="">' +
+    '<div class="letter-sheet"><div class="letter-paper"></div><div class="letter-text"></div></div>' +
+    '<button class="letter-close">Cerrar</button>';
+  layer.appendChild(letter);
+  const ball = letter.querySelector('.letter-ball');
+  const sheet = letter.querySelector('.letter-sheet');
+  const text = letter.querySelector('.letter-text');
+  const lClose = letter.querySelector('.letter-close');
+  const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+  text.innerHTML =
+    '<p class="st st-title">' + esc(POEM_TITLE) + '</p>' +
+    POEM.map((p, i) => '<p class="st' + (i === POEM.length - 1 ? ' st-sign' : '') + '">' + esc(p) + '</p>').join('');
+  const stanzas = [...text.querySelectorAll('.st')];
+
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  const easeIO = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);   // easeInOutCubic
+  const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+  let letterRaf = 0, letterTimers = [], letterOpen = false, userScrolled = false;
+
+  function setWrinkle(u) {   // u: 0 = muy arrugado ... 1 = liso
+    wrDisp.setAttribute('scale', (95 * (1 - u)).toFixed(1));
+    wrLight.setAttribute('surfaceScale', (9 * (1 - u) + 0.7).toFixed(2));
+  }
+  function openLetter() {
+    letterOpen = true; userScrolled = false;
+    card.hidden = true;
+    layer.classList.add('dim');
+    letter.hidden = false;
+    text.classList.remove('show');
+    text.scrollTop = 0;
+    lClose.classList.remove('on');
+    ball.style.opacity = 0; sheet.style.opacity = 0;
+    setWrinkle(0);
+    const t0 = performance.now();
+    let revealed = false, lastPaint = 0;
+    const T_UNFOLD0 = 1500, T_UNFOLD = 4600;   // ms: cuándo empieza y cuánto dura el desarrugado
+    function frame(now) {
+      const t = now - t0;
+      if (now - lastPaint > 30 || t > T_UNFOLD0 + T_UNFOLD) {   // ~30 fps: el filtro SVG es costoso
+        lastPaint = now;
+        const bIn = easeOut(clamp01(t / 1000));
+        const swap = easeIO(clamp01((t - 1100) / 900));
+        ball.style.opacity = (bIn * (1 - swap)).toFixed(3);
+        ball.style.transform = 'translateY(' + ((1 - bIn) * 26 + Math.sin(t / 420) * 3).toFixed(1) + 'px) scale(' +
+          (0.78 + 0.22 * bIn + 0.3 * swap).toFixed(3) + ') rotate(' + (-8 * bIn + 14 * swap).toFixed(1) + 'deg)';
+        const u = easeIO(clamp01((t - T_UNFOLD0) / T_UNFOLD));
+        sheet.style.opacity = clamp01((t - 1150) / 700).toFixed(3);
+        sheet.style.transform = 'scale(' + (0.42 + 0.58 * u).toFixed(3) + ') rotate(' + (-13 * (1 - u)).toFixed(2) + 'deg)';
+        setWrinkle(u);
+      }
+      if (!revealed && t > T_UNFOLD0 + T_UNFOLD * 0.72) {   // cuando casi está lisa, aparece el texto
+        revealed = true;
+        stanzas.forEach((st, i) => { st.style.transitionDelay = (i * 0.55).toFixed(2) + 's'; });
+        text.classList.add('show');
+        stanzas.forEach((st, i) => {
+          letterTimers.push(setTimeout(() => {
+            if (userScrolled || !letterOpen) return;
+            text.scrollTo({ top: Math.max(0, st.offsetTop + st.offsetHeight - text.clientHeight + 36), behavior: 'smooth' });
+          }, i * 550 + 250));
+        });
+        letterTimers.push(setTimeout(() => lClose.classList.add('on'), stanzas.length * 550 + 600));
+      }
+      if (t < T_UNFOLD0 + T_UNFOLD + 200 || !revealed) letterRaf = requestAnimationFrame(frame);
+      else { ball.style.opacity = 0; sheet.style.transform = 'none'; setWrinkle(1); }
+    }
+    letterRaf = requestAnimationFrame(frame);
+  }
+  function closeLetter() {
+    letterOpen = false;
+    cancelAnimationFrame(letterRaf);
+    letterTimers.forEach(clearTimeout); letterTimers = [];
+    close();
+    setTimeout(() => { letter.hidden = true; text.classList.remove('show'); }, 380);
+  }
+  lClose.addEventListener('click', closeLetter);
+  ['wheel', 'touchstart', 'pointerdown'].forEach((ev) => text.addEventListener(ev, () => { userScrolled = true; }, { passive: true }));
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && letterOpen) closeLetter(); });
+
+  let yesTimer = 0;
   function accept() {
     stop.hidden = true;
     card.hidden = false;
@@ -727,17 +844,10 @@
     head.textContent = 'Aviso';
     q.textContent = current.yes;
     actions.hidden = true;
-    let b = card.querySelector('.ask-done');
-    if (!b) {
-      b = document.createElement('button');
-      b.className = 'ask-yes ask-done';
-      b.textContent = 'Cerrar';
-      b.addEventListener('click', close);
-      card.appendChild(b);
-    }
-    b.hidden = false;
     center();
     hearts();
+    clearTimeout(yesTimer);
+    yesTimer = setTimeout(openLetter, 2200);   // primero la respuesta, después la carta
   }
 
   ask.addEventListener('click', () => { const b = card.querySelector('.ask-done'); if (b) b.hidden = true; open(); });
