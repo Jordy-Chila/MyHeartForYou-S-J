@@ -205,7 +205,7 @@
   for (const [k, [ra, dec, b]] of Object.entries(TAU)) {
     const [x, y] = toXY(ra, dec);
     pos[k] = [x, y, SKY_Z];
-    stars.push(x, y, SKY_Z, 7 + b * 11, 0.55 + b * 0.4);
+    stars.push(x, y, SKY_Z, 10 + b * 14, 0.7 + b * 0.3);
   }
   // cúmulo de las Pléyades: pequeñas estrellas alrededor de Alcyone
   for (let i = 0; i < 9; i++) {
@@ -213,11 +213,12 @@
     stars.push(ax + (Math.random() - 0.5) * 2.6, ay + (Math.random() - 0.5) * 2.6, SKY_Z, 4 + Math.random() * 3, 0.5);
   }
   // estrellas de fondo: miles, de brillo variable pero siempre menor que la constelación
-  for (let i = 0; i < 4500; i++) {
+  for (let i = 0; i < 9000; i++) {
     const x = (Math.random() * 2 - 1) * 65, y = (Math.random() * 2 - 1) * 42;
     const z = SKY_Z - Math.random() * 15;
-    const big = Math.random() < 0.06;            // unas pocas algo más brillantes
-    stars.push(x, y, z, big ? 3 + Math.random() * 1.5 : 1.1 + Math.random() * 1.6, big ? 0.3 + Math.random() * 0.15 : 0.1 + Math.random() * 0.25);
+    const q = Math.random();
+    const big = q < 0.1;                          // algunas más brillantes (aun así < constelación)
+    stars.push(x, y, z, big ? 3.2 + Math.random() * 1.8 : 1.4 + Math.random() * 1.8, big ? 0.45 + Math.random() * 0.2 : 0.22 + Math.random() * 0.3);
   }
   const sp = new Float32Array(stars.length / 5 * 3), ss = new Float32Array(stars.length / 5), sa = new Float32Array(stars.length / 5);
   for (let i = 0; i < ss.length; i++) {
@@ -240,7 +241,7 @@
         vTint = h < 0.6 ? vec3(0.75, 0.85, 1.0) : (h < 0.85 ? vec3(1.0, 0.95, 0.85) : vec3(1.0, 0.75, 0.85));
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         gl_PointSize = aSize * uPx;
-        vA = aAlpha * (0.8 + 0.2 * sin(uTime * 1.3 + position.x * 12.9 + position.y * 7.7));
+        vA = aAlpha * (0.6 + 0.4 * sin(uTime * (0.8 + h * 2.2) + h * 60.0));
       }`,
     fragmentShader: `
       varying float vA; varying vec3 vTint;
@@ -262,7 +263,7 @@
   const lineGeo = new THREE.BufferGeometry();
   lineGeo.setAttribute("position", new THREE.Float32BufferAttribute(lp, 3));
   const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
-    color: 0x7fa8ff, transparent: true, opacity: 0.3, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    color: 0x7fa8ff, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   }));
   lines.renderOrder = -3;
   sky.add(lines);
