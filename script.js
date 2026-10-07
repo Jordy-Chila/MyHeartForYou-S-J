@@ -437,15 +437,37 @@
   let rotY = 0, rotX = 0.12, velY = 0, velX = 0;
   let dragging = false, lastX = 0, lastY = 0;
 
+  // Zona sensible del corazón: muestra de partículas proyectadas a pantalla (sigue la rotación actual)
+  const HIT_SAMPLES = [];
+  for (let i = 0; i < HEART_COUNT; i += 12) HIT_SAMPLES.push(hPos[i * 3], hPos[i * 3 + 1], hPos[i * 3 + 2]);
+  const _hv = new THREE.Vector3();
+  function overHeart(px, py) {
+    root.updateMatrixWorld();
+    const R = Math.max(18, Math.min(window.innerWidth, window.innerHeight) * 0.03);
+    const R2 = R * R;
+    for (let i = 0; i < HIT_SAMPLES.length; i += 3) {
+      _hv.set(HIT_SAMPLES[i], HIT_SAMPLES[i + 1], HIT_SAMPLES[i + 2]).applyMatrix4(root.matrixWorld).project(camera);
+      const dx = (_hv.x * 0.5 + 0.5) * window.innerWidth - px;
+      const dy = (-_hv.y * 0.5 + 0.5) * window.innerHeight - py;
+      if (dx * dx + dy * dy < R2) return true;
+    }
+    return false;
+  }
+
   let downX = 0, downY = 0, downT = 0;
   canvas.addEventListener('pointerdown', (e) => {
     downX = e.clientX; downY = e.clientY; downT = performance.now();
+    if (!overHeart(e.clientX, e.clientY)) return;   // sólo se gira si se agarra el corazón
     dragging = true; lastX = e.clientX; lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
     canvas.classList.add('dragging');
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!dragging) { canvas.classList.toggle('hover-const', hitConstellation(e.clientX, e.clientY)); return; }
+    if (!dragging) {
+      canvas.classList.toggle('hover-const', hitConstellation(e.clientX, e.clientY));
+      canvas.classList.toggle('over-heart', overHeart(e.clientX, e.clientY));
+      return;
+    }
     canvas.classList.remove('hover-const');
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX; lastY = e.clientY;
