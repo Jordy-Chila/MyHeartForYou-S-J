@@ -789,7 +789,7 @@
 
   const crA = letter.querySelector('.cr-a'), crB = letter.querySelector('.cr-b');
   function setWrinkle(u) {   // u: 0 = muy arrugado ... 1 = hoja con pliegues suaves
-    crA.style.opacity = (1 - 0.7 * u).toFixed(3);
+    crA.style.opacity = (1 - 0.8 * u).toFixed(3);
     crB.style.opacity = (0.95 * (1 - u) * (1 - u)).toFixed(3);
   }
   // borde irregular, como papel rasgado
