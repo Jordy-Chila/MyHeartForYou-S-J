@@ -11,35 +11,36 @@
   const root = new THREE.Group();   // se controla con el mouse
   scene.add(root);
 
-  // ---------- Corazón: muestreo volumétrico sesgado hacia la superficie ----------
-  // Superficie implícita clásica del corazón: (x²+9/4y²+z²-1)³ - x²z³ - 9/80 y²z³ = 0
-  const heartF = (x, y, z) => {
-    const a = x * x + 2.25 * y * y + z * z - 1;
-    return a * a * a - x * x * z * z * z - 0.1125 * y * y * z * z * z;
-  };
-
+  // ---------- Corazón: contorno paramétrico con volumen tipo almohada ----------
   const HEART_COUNT = 9000;
   const hPos = new Float32Array(HEART_COUNT * 3);
   const hSeed = new Float32Array(HEART_COUNT * 4);
-  const SCALE = 2.6;
-  let n = 0;
-  while (n < HEART_COUNT) {
-    const x = (Math.random() * 2 - 1) * 1.3;
-    const y = (Math.random() * 2 - 1) * 0.8;   // profundidad
-    const z = (Math.random() * 2.6 - 1.3);      // vertical
-    const f = heartF(x, y, z);
-    if (f > 0) continue;
-    // la mayoría en una cáscara cercana a la superficie; pocas en el interior (no sólido)
-    const shell = f > -0.06;
-    if (!shell && Math.random() > 0.07) continue;
-    hPos[n * 3] = x * SCALE;
-    hPos[n * 3 + 1] = (z - 0.1) * SCALE;
-    hPos[n * 3 + 2] = y * SCALE * 1.5;
+  const K = 0.2;       // escala del contorno (x en [-16,16] -> ±3.2)
+  const T = 2.3;       // grosor máximo (profundidad)
+  for (let n = 0; n < HEART_COUNT; n++) {
+    const t = Math.random() * Math.PI * 2;
+    const hx = 16 * Math.pow(Math.sin(t), 3);
+    const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    const r = Math.random();
+    let s, z, shell = 1;
+    if (r < 0.62) {                 // superficie en forma de almohada
+      s = Math.pow(Math.random(), 0.45);
+      z = (Math.random() < 0.5 ? -1 : 1) * T * Math.sqrt(Math.max(0, 1 - s * s)) + (Math.random() - 0.5) * 0.12;
+    } else if (r < 0.80) {          // borde que define la silueta
+      s = 1 - Math.random() * 0.03;
+      z = (Math.random() - 0.5) * 0.35;
+    } else {                        // pocas partículas interiores
+      s = Math.sqrt(Math.random());
+      z = (Math.random() * 2 - 1) * T * Math.sqrt(Math.max(0, 1 - s * s)) * 0.9;
+      shell = 0;
+    }
+    hPos[n * 3] = hx * s * K;
+    hPos[n * 3 + 1] = (hy * s + 2.5) * K;
+    hPos[n * 3 + 2] = z;
     hSeed[n * 4] = Math.random();
     hSeed[n * 4 + 1] = Math.random() * 6.2831;
     hSeed[n * 4 + 2] = Math.random();
-    hSeed[n * 4 + 3] = shell ? 1 : 0;
-    n++;
+    hSeed[n * 4 + 3] = shell;
   }
 
   // ---------- Partículas ambientales ----------
@@ -215,7 +216,7 @@
 
   // ---------- Bucle ----------
   const clock = new THREE.Clock();
-  const AUTO = 0.25; // rad/s
+  const AUTO = 0.6; // rad/s
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
