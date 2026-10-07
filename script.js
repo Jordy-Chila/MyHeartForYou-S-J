@@ -17,10 +17,22 @@
   const hSeed = new Float32Array(HEART_COUNT * 4);
   const K = 0.2;       // escala del contorno (x en [-16,16] -> ±3.2)
   const T = 2.1;       // grosor máximo (profundidad)
+  // Jacobiano del mapeo radial: muestrear t con esta densidad reparte las partículas de forma uniforme por área
+  const heartX = (t) => 16 * Math.pow(Math.sin(t), 3);
+  const heartY = (t) => 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+  const jac = (t) => {
+    const dx = 48 * Math.sin(t) * Math.sin(t) * Math.cos(t);
+    const dy = -13 * Math.sin(t) + 10 * Math.sin(2 * t) + 6 * Math.sin(3 * t) + 4 * Math.sin(4 * t);
+    return Math.abs(heartX(t) * dy - heartY(t) * dx);
+  };
+  let jMax = 0;
+  for (let i = 0; i < 720; i++) jMax = Math.max(jMax, jac(i / 720 * Math.PI * 2));
+
   for (let n = 0; n < HEART_COUNT; n++) {
-    const t = Math.random() * Math.PI * 2;
-    const hx = 16 * Math.pow(Math.sin(t), 3);
-    const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    let t;
+    do { t = Math.random() * Math.PI * 2; } while (Math.random() * jMax > jac(t));
+    const hx = heartX(t);
+    const hy = heartY(t);
     const r = Math.random();
     let s, z, shell = 1;
     const prof = (q) => Math.sqrt(Math.max(0, 1 - q * q));
