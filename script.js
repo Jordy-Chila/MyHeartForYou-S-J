@@ -436,22 +436,18 @@
   // ---------- Interacción: arrastre + giro manual con inercia ----------
   let rotY = 0, rotX = 0.12, velY = 0, velX = 0;
   let dragging = false, lastX = 0, lastY = 0;
-  // Giro automático: al 3.er giro seguido en la misma dirección, el corazón sigue girando solo hacia ese lado
+  // Giro automático: desde el primer giro, el corazón sigue girando solo hacia el lado en que se soltó
   // Al empezar, el giro automático conserva la velocidad con que el usuario soltó el corazón,
   // luego va bajando poco a poco hasta la velocidad "normal" de crucero (AUTO_SPEED).
-  const SPINS_TO_AUTO = 3, AUTO_SPEED = 0.7;   // rad/s (velocidad normal)
+  const AUTO_SPEED = 0.7;                       // rad/s (velocidad normal)
   const MAX_FLING = 9;                          // rad/s (tope de la velocidad inicial)
   const DECEL_RATE = 0.5, ACCEL_RATE = 1.5;     // 1/s: qué tan rápido se acerca a la velocidad normal
   let omega = 0, lastMoveT = 0;                 // velocidad angular del arrastre (rad/s, con signo)
-  let gestureDx = 0, spinCount = 0, lastSpinDir = 0, autoDir = 0, autoV = 0;
-  const stopAuto = () => { autoDir = 0; autoV = 0; spinCount = 0; lastSpinDir = 0; };
+  let gestureDx = 0, autoDir = 0, autoV = 0;
+  const stopAuto = () => { autoDir = 0; autoV = 0; };
   function registerSpin(dir, releaseOmega) {
-    spinCount = dir === lastSpinDir ? spinCount + 1 : 1;
-    lastSpinDir = dir;
-    if (spinCount >= SPINS_TO_AUTO) {
-      autoDir = dir; velY = 0;
-      autoV = dir * Math.min(MAX_FLING, Math.max(Math.abs(releaseOmega), AUTO_SPEED * 0.6));   // arranca a la velocidad que traía el usuario
-    }
+    autoDir = dir; velY = 0;
+    autoV = dir * Math.min(MAX_FLING, Math.max(Math.abs(releaseOmega), AUTO_SPEED * 0.6));   // arranca a la velocidad que traía el usuario
   }
 
   // Zona sensible del corazón: muestra de partículas proyectadas a pantalla (sigue la rotación actual)
@@ -475,7 +471,7 @@
   canvas.addEventListener('pointerdown', (e) => {
     downX = e.clientX; downY = e.clientY; downT = performance.now();
     if (!overHeart(e.clientX, e.clientY)) return;   // sólo se gira si se agarra el corazón
-    if (autoDir !== 0) stopAuto();   // agarrarlo lo detiene (sin borrar la cuenta de giros si aún no era automático)
+    if (autoDir !== 0) stopAuto();   // agarrarlo lo detiene
     gestureDx = 0; omega = 0; lastMoveT = performance.now();
     dragging = true; lastX = e.clientX; lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
@@ -504,7 +500,8 @@
     const wasDrag = dragging;
     const releaseOmega = performance.now() - lastMoveT > 90 ? 0 : omega;   // si se detuvo antes de soltar, no hay impulso
     endDrag();
-    if (wasDrag && Math.abs(gestureDx) > 25) registerSpin(Math.sign(gestureDx), releaseOmega);
+    const held = performance.now() - lastMoveT > 250;   // se quedó quieto con el corazón agarrado: lo dejó donde quería
+    if (wasDrag && !held && Math.abs(gestureDx) > 25) registerSpin(Math.sign(gestureDx), releaseOmega);
     if (isClick && hitConstellation(e.clientX, e.clientY)) startMorph(clock.elapsedTime);
   });
   canvas.addEventListener('pointercancel', endDrag);
@@ -641,7 +638,7 @@
     lastIdx = i;
     current = ITEMS[i];
   }
-  const MAX_NO = 3;   // al pulsar "No" por cuarta vez aparece la imagen
+  const MAX_NO = 2;   // los dos primeros "No" mueven el aviso; al tercero aparece la imagen
   const ask = document.createElement('button');
   ask.className = 'ask-btn';
   ask.textContent = '¿Quieres saber algo?';
