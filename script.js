@@ -430,12 +430,13 @@
   canvas.addEventListener('pointercancel', endDrag);
 
   // ---------- Latido (lub-dub) con pausa ----------
-  const bump = (t, c, w) => Math.exp(-Math.pow((t - c) / w, 2));
-  const PERIOD = 1.7;
-  let beat = 0;
-  function beatTarget(time) {
-    const t = time % PERIOD;
-    return Math.min(1, bump(t, 0.12, 0.07) + 0.65 * bump(t, 0.38, 0.09));
+  // Hombre joven (26 años) en reposo: ~62 lpm (ciclo ≈ 0.97 s), con una leve variación natural al respirar.
+  const BPM = 62;
+  const bump = (p, c, w) => Math.exp(-Math.pow((p - c) / w, 2));
+  let beat = 0, beatPhase = 0;   // beatPhase: 0..1 dentro de cada ciclo
+  function beatTarget(p) {
+    // "lub" (sístole) más fuerte, "dub" más suave, y reposo hasta el siguiente latido
+    return Math.min(1, bump(p, 0.10, 0.075) + 0.6 * bump(p, 0.38, 0.09));
   }
 
   // ---------- Bucle ----------
@@ -445,8 +446,10 @@
     const dt = Math.min(clock.getDelta(), 0.05);
     const time = clock.elapsedTime;
 
-    const target = beatTarget(time);
-    beat += (target - beat) * Math.min(1, dt * 22); // suavizado para evitar saltos bruscos
+    const bpm = BPM * (1 + 0.04 * Math.sin(time * 0.9));   // arritmia sinusal respiratoria (±4 %)
+    beatPhase = (beatPhase + dt * bpm / 60) % 1;
+    const target = beatTarget(beatPhase);
+    beat += (target - beat) * Math.min(1, dt * 13);       // suavizado: sin cambios bruscos
 
     if (!dragging) {
       velY *= Math.pow(0.04, dt);       // inercia
