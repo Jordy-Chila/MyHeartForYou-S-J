@@ -436,6 +436,15 @@
   // ---------- Interacción: arrastre + giro manual con inercia ----------
   let rotY = 0, rotX = 0.12, velY = 0, velX = 0;
   let dragging = false, lastX = 0, lastY = 0;
+  // Giro automático: al 3.er giro seguido en la misma dirección, el corazón sigue girando solo hacia ese lado
+  const SPINS_TO_AUTO = 3, AUTO_SPEED = 0.7;   // rad/s
+  let gestureDx = 0, spinCount = 0, lastSpinDir = 0, autoDir = 0, autoV = 0;
+  const stopAuto = () => { autoDir = 0; autoV = 0; spinCount = 0; lastSpinDir = 0; };
+  function registerSpin(dir) {
+    spinCount = dir === lastSpinDir ? spinCount + 1 : 1;
+    lastSpinDir = dir;
+    if (spinCount >= SPINS_TO_AUTO) { autoDir = dir; velY = 0; }
+  }
 
   // Zona sensible del corazón: muestra de partículas proyectadas a pantalla (sigue la rotación actual)
   const HIT_SAMPLES = [];
@@ -458,6 +467,8 @@
   canvas.addEventListener('pointerdown', (e) => {
     downX = e.clientX; downY = e.clientY; downT = performance.now();
     if (!overHeart(e.clientX, e.clientY)) return;   // sólo se gira si se agarra el corazón
+    if (autoDir !== 0) stopAuto();   // agarrarlo lo detiene (sin borrar la cuenta de giros si aún no era automático)
+    gestureDx = 0;
     dragging = true; lastX = e.clientX; lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
     canvas.classList.add('dragging');
@@ -472,13 +483,16 @@
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX; lastY = e.clientY;
     velY = dx * 0.006; velX = dy * 0.004;
+    gestureDx += dx;
     rotY += velY; rotX += velX;
     rotX = Math.max(-1.2, Math.min(1.2, rotX));
   });
   const endDrag = () => { dragging = false; canvas.classList.remove('dragging'); };
   canvas.addEventListener('pointerup', (e) => {
     const isClick = Math.hypot(e.clientX - downX, e.clientY - downY) < 6 && performance.now() - downT < 500;
+    const wasDrag = dragging;
     endDrag();
+    if (wasDrag && Math.abs(gestureDx) > 25) registerSpin(Math.sign(gestureDx));
     if (isClick && hitConstellation(e.clientX, e.clientY)) startMorph(clock.elapsedTime);
   });
   canvas.addEventListener('pointercancel', endDrag);
@@ -510,6 +524,8 @@
       velX *= Math.pow(0.04, dt);
       rotY += velY;
       rotX += velX;
+      autoV += (autoDir * AUTO_SPEED - autoV) * Math.min(1, dt * 1.5);   // arranque suave
+      rotY += autoV * dt;
     }
 
     root.rotation.set(rotX, rotY, 0);
