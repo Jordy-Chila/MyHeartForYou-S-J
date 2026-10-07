@@ -212,11 +212,12 @@
     const [ax, ay] = toXY(3.791, 24.11);
     stars.push(ax + (Math.random() - 0.5) * 2.6, ay + (Math.random() - 0.5) * 2.6, SKY_Z, 4 + Math.random() * 3, 0.5);
   }
-  // estrellas de fondo (muy tenues)
-  for (let i = 0; i < 900; i++) {
-    const x = (Math.random() * 2 - 1) * 60, y = (Math.random() * 2 - 1) * 40;
+  // estrellas de fondo: miles, de brillo variable pero siempre menor que la constelación
+  for (let i = 0; i < 4500; i++) {
+    const x = (Math.random() * 2 - 1) * 65, y = (Math.random() * 2 - 1) * 42;
     const z = SKY_Z - Math.random() * 15;
-    stars.push(x, y, z, 1.2 + Math.random() * 2.2, 0.15 + Math.random() * 0.35);
+    const big = Math.random() < 0.06;            // unas pocas algo más brillantes
+    stars.push(x, y, z, big ? 3 + Math.random() * 1.5 : 1.1 + Math.random() * 1.6, big ? 0.3 + Math.random() * 0.15 : 0.1 + Math.random() * 0.25);
   }
   const sp = new Float32Array(stars.length / 5 * 3), ss = new Float32Array(stars.length / 5), sa = new Float32Array(stars.length / 5);
   for (let i = 0; i < ss.length; i++) {
@@ -233,20 +234,22 @@
     vertexShader: `
       attribute float aSize; attribute float aAlpha;
       uniform float uTime; uniform float uPx;
-      varying float vA;
+      varying float vA; varying vec3 vTint;
       void main() {
+        float h = fract(sin(dot(position.xy, vec2(12.9898, 78.233))) * 43758.5453);
+        vTint = h < 0.6 ? vec3(0.75, 0.85, 1.0) : (h < 0.85 ? vec3(1.0, 0.95, 0.85) : vec3(1.0, 0.75, 0.85));
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         gl_PointSize = aSize * uPx;
         vA = aAlpha * (0.8 + 0.2 * sin(uTime * 1.3 + position.x * 12.9 + position.y * 7.7));
       }`,
     fragmentShader: `
-      varying float vA;
+      varying float vA; varying vec3 vTint;
       void main() {
         vec2 c = gl_PointCoord - 0.5;
         float d = length(c);
         if (d > 0.5) discard;
         float g = pow(smoothstep(0.5, 0.0, d), 2.2);
-        gl_FragColor = vec4(vec3(0.75, 0.85, 1.0) * g, g * vA);
+        gl_FragColor = vec4(vTint * g, g * vA);
       }`,
   });
   const starPts = new THREE.Points(starGeo, starMat);
@@ -259,7 +262,7 @@
   const lineGeo = new THREE.BufferGeometry();
   lineGeo.setAttribute("position", new THREE.Float32BufferAttribute(lp, 3));
   const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
-    color: 0x7fa8ff, transparent: true, opacity: 0.22, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    color: 0x7fa8ff, transparent: true, opacity: 0.3, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   }));
   lines.renderOrder = -3;
   sky.add(lines);
@@ -270,8 +273,6 @@
     renderer.setSize(w, h, false);
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     camera.aspect = w / h;
-    sky.scale.setScalar(Math.min(1, camera.aspect * 1.05));
-    sky.position.y = THREE.MathUtils.clamp((1.1 - camera.aspect) * 16, 0, 9);  // en vertical, sube la constelación
     // asegura que el corazón (~±3.4 de ancho) quepa tanto en pantallas anchas como en móviles
     const halfW = 4.4;
     const fovV = THREE.MathUtils.degToRad(camera.fov);
@@ -280,6 +281,11 @@
     camera.position.set(0, 0.4, Math.max(distH, distW));
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
+    // la constelación (≈34×21 u) se ajusta al ancho visible del fondo; en vertical se sube sobre el corazón
+    const visH = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (Math.abs(SKY_Z) + camera.position.z);
+    const visW = visH * camera.aspect;
+    sky.scale.setScalar(THREE.MathUtils.clamp(visW * 0.95 / 34, 0.55, 1.25));
+    sky.position.y = camera.aspect < 1 ? THREE.MathUtils.clamp((1.1 - camera.aspect) * 16, 0, 9) : visH * 0.06;
   }
   window.addEventListener('resize', resize);
   resize();
