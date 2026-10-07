@@ -271,6 +271,7 @@
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     camera.aspect = w / h;
     sky.scale.setScalar(Math.min(1, camera.aspect * 1.05));
+    sky.position.y = THREE.MathUtils.clamp((1.1 - camera.aspect) * 16, 0, 9);  // en vertical, sube la constelación
     // asegura que el corazón (~±3.4 de ancho) quepa tanto en pantallas anchas como en móviles
     const halfW = 4.4;
     const fovV = THREE.MathUtils.degToRad(camera.fov);
