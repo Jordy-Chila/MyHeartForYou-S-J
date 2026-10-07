@@ -437,13 +437,21 @@
   let rotY = 0, rotX = 0.12, velY = 0, velX = 0;
   let dragging = false, lastX = 0, lastY = 0;
   // Giro automático: al 3.er giro seguido en la misma dirección, el corazón sigue girando solo hacia ese lado
-  const SPINS_TO_AUTO = 3, AUTO_SPEED = 0.7;   // rad/s
+  // Al empezar, el giro automático conserva la velocidad con que el usuario soltó el corazón,
+  // luego va bajando poco a poco hasta la velocidad "normal" de crucero (AUTO_SPEED).
+  const SPINS_TO_AUTO = 3, AUTO_SPEED = 0.7;   // rad/s (velocidad normal)
+  const MAX_FLING = 9;                          // rad/s (tope de la velocidad inicial)
+  const DECEL_RATE = 0.5, ACCEL_RATE = 1.5;     // 1/s: qué tan rápido se acerca a la velocidad normal
+  let omega = 0, lastMoveT = 0;                 // velocidad angular del arrastre (rad/s, con signo)
   let gestureDx = 0, spinCount = 0, lastSpinDir = 0, autoDir = 0, autoV = 0;
   const stopAuto = () => { autoDir = 0; autoV = 0; spinCount = 0; lastSpinDir = 0; };
-  function registerSpin(dir) {
+  function registerSpin(dir, releaseOmega) {
     spinCount = dir === lastSpinDir ? spinCount + 1 : 1;
     lastSpinDir = dir;
-    if (spinCount >= SPINS_TO_AUTO) { autoDir = dir; velY = 0; }
+    if (spinCount >= SPINS_TO_AUTO) {
+      autoDir = dir; velY = 0;
+      autoV = dir * Math.min(MAX_FLING, Math.max(Math.abs(releaseOmega), AUTO_SPEED * 0.6));   // arranca a la velocidad que traía el usuario
+    }
   }
 
   // Zona sensible del corazón: muestra de partículas proyectadas a pantalla (sigue la rotación actual)
@@ -468,7 +476,7 @@
     downX = e.clientX; downY = e.clientY; downT = performance.now();
     if (!overHeart(e.clientX, e.clientY)) return;   // sólo se gira si se agarra el corazón
     if (autoDir !== 0) stopAuto();   // agarrarlo lo detiene (sin borrar la cuenta de giros si aún no era automático)
-    gestureDx = 0;
+    gestureDx = 0; omega = 0; lastMoveT = performance.now();
     dragging = true; lastX = e.clientX; lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
     canvas.classList.add('dragging');
@@ -484,6 +492,9 @@
     lastX = e.clientX; lastY = e.clientY;
     velY = dx * 0.006; velX = dy * 0.004;
     gestureDx += dx;
+    const nowT = performance.now();
+    omega += (dx * 0.006 / (Math.max(8, nowT - lastMoveT) / 1000) - omega) * 0.5;   // rad/s suavizado
+    lastMoveT = nowT;
     rotY += velY; rotX += velX;
     rotX = Math.max(-1.2, Math.min(1.2, rotX));
   });
@@ -491,8 +502,9 @@
   canvas.addEventListener('pointerup', (e) => {
     const isClick = Math.hypot(e.clientX - downX, e.clientY - downY) < 6 && performance.now() - downT < 500;
     const wasDrag = dragging;
+    const releaseOmega = performance.now() - lastMoveT > 90 ? 0 : omega;   // si se detuvo antes de soltar, no hay impulso
     endDrag();
-    if (wasDrag && Math.abs(gestureDx) > 25) registerSpin(Math.sign(gestureDx));
+    if (wasDrag && Math.abs(gestureDx) > 25) registerSpin(Math.sign(gestureDx), releaseOmega);
     if (isClick && hitConstellation(e.clientX, e.clientY)) startMorph(clock.elapsedTime);
   });
   canvas.addEventListener('pointercancel', endDrag);
@@ -524,7 +536,8 @@
       velX *= Math.pow(0.04, dt);
       rotY += velY;
       rotX += velX;
-      autoV += (autoDir * AUTO_SPEED - autoV) * Math.min(1, dt * 1.5);   // arranque suave
+      const rate = Math.abs(autoV) > AUTO_SPEED ? DECEL_RATE : ACCEL_RATE;   // frena despacio / acelera con suavidad
+      autoV += (autoDir * AUTO_SPEED - autoV) * Math.min(1, dt * rate);
       rotY += autoV * dt;
     }
 
