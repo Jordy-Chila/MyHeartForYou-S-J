@@ -590,3 +590,120 @@
   }
   setTimeout(show, FIRST_DELAY);
 })();
+
+// ---------- Botón "¿Quieres saber algo?" + aviso con la pregunta ----------
+(() => {
+  const QUESTION = '¿Quieres ser mi novia?';
+  const MAX_NO = 3;   // al pulsar "No" por cuarta vez aparece la imagen
+  const ask = document.createElement('button');
+  ask.className = 'ask-btn';
+  ask.textContent = '¿Quieres saber algo?';
+  document.body.appendChild(ask);
+
+  const layer = document.createElement('div');
+  layer.className = 'ask-layer';
+  layer.hidden = true;
+  layer.innerHTML =
+    '<div class="ask-card" role="dialog" aria-live="polite">' +
+      '<div class="ask-head"><span class="ask-dot"></span><span>Aviso</span></div>' +
+      '<div class="ask-q"></div>' +
+      '<div class="ask-actions"><button class="ask-yes">Sí</button><button class="ask-no">No</button></div>' +
+    '</div>' +
+    '<div class="ask-stop" hidden>' +
+      '<img src="gorila.png" alt="" width="280" height="498">' +
+      '<p>Deja de darle "No" y acepta que me amas</p>' +
+      '<button class="ask-yes">Está bien, sí</button>' +
+    '</div>';
+  document.body.appendChild(layer);
+
+  const card = layer.querySelector('.ask-card');
+  const stop = layer.querySelector('.ask-stop');
+  const q = layer.querySelector('.ask-q');
+  const actions = layer.querySelector('.ask-actions');
+  const head = layer.querySelector('.ask-head span:last-child');
+  let noCount = 0;
+
+  function center() {
+    const r = card.getBoundingClientRect();
+    card.style.transition = 'none';
+    card.style.left = Math.round((window.innerWidth - r.width) / 2) + 'px';
+    card.style.top = Math.round((window.innerHeight - r.height) / 2) + 'px';
+    void card.offsetWidth;
+    card.style.transition = '';
+  }
+  function open() {
+    noCount = 0;
+    head.textContent = 'Aviso';
+    q.textContent = QUESTION;
+    actions.hidden = false;
+    stop.hidden = true;
+    card.hidden = false;
+    layer.hidden = false;
+    layer.classList.remove('dim');
+    center();
+    requestAnimationFrame(() => layer.classList.add('on'));
+  }
+  function close() {
+    layer.classList.remove('on', 'dim');
+    setTimeout(() => { layer.hidden = true; }, 350);
+  }
+  function moveRandom() {
+    const r = card.getBoundingClientRect();
+    const m = 10;
+    const maxX = Math.max(m, window.innerWidth - r.width - m);
+    const maxY = Math.max(m, window.innerHeight - r.height - m);
+    let x, y, tries = 0;
+    do {   // evita quedarse casi en el mismo sitio
+      x = m + Math.random() * (maxX - m);
+      y = m + Math.random() * (maxY - m);
+    } while (tries++ < 8 && Math.hypot(x - r.left, y - r.top) < 120);
+    card.style.left = Math.round(x) + 'px';
+    card.style.top = Math.round(y) + 'px';
+  }
+  function hearts() {
+    for (let i = 0; i < 28; i++) {
+      const h = document.createElement('span');
+      h.className = 'fly-heart';
+      h.textContent = '♥';
+      h.style.left = Math.random() * 100 + 'vw';
+      h.style.fontSize = 14 + Math.random() * 26 + 'px';
+      h.style.animationDuration = 2.8 + Math.random() * 2.4 + 's';
+      h.style.animationDelay = Math.random() * 0.9 + 's';
+      document.body.appendChild(h);
+      setTimeout(() => h.remove(), 6500);
+    }
+  }
+  function accept() {
+    stop.hidden = true;
+    card.hidden = false;
+    layer.classList.remove('dim');
+    head.textContent = 'Aviso';
+    q.textContent = '¡Sí! Sabía que lo dirías. Te amo, Samantha.';
+    actions.hidden = true;
+    let b = card.querySelector('.ask-done');
+    if (!b) {
+      b = document.createElement('button');
+      b.className = 'ask-yes ask-done';
+      b.textContent = 'Cerrar';
+      b.addEventListener('click', close);
+      card.appendChild(b);
+    }
+    b.hidden = false;
+    center();
+    hearts();
+  }
+
+  ask.addEventListener('click', () => { const b = card.querySelector('.ask-done'); if (b) b.hidden = true; open(); });
+  layer.querySelectorAll('.ask-yes').forEach((b) => { if (!b.classList.contains('ask-done')) b.addEventListener('click', accept); });
+  layer.querySelector('.ask-no').addEventListener('click', () => {
+    noCount++;
+    if (noCount > MAX_NO) {
+      card.hidden = true;
+      stop.hidden = false;
+      layer.classList.add('dim');
+    } else {
+      moveRandom();
+    }
+  });
+  window.addEventListener('resize', () => { if (!layer.hidden && !card.hidden && noCount === 0) center(); });
+})();
