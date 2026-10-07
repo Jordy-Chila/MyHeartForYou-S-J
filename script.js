@@ -187,7 +187,7 @@
   // [ascensión recta (h), declinación (°), brillo]
   const CONSTELLATIONS = {
     tauro: {
-      label: '♉ Tauro · 05/05/2007',
+      label: 'Samantha · 05/05/2007',
       main: [
         [4.599, 16.51, 1.0],   // 0 Aldebarán
         [5.438, 28.61, 0.9],   // 1 Elnath
@@ -205,7 +205,7 @@
       cluster: 10,             // las estrellas sobrantes forman las Pléyades
     },
     libra: {
-      label: '♎ Libra',
+      label: 'Jordy · 01/10/2000',
       main: [
         [14.848, -16.04, 0.9], // 0 Zubenelgenubi
         [15.283, -9.38, 0.9],  // 1 Zubeneschamali
