@@ -182,16 +182,14 @@
   window.addEventListener('resize', resize);
   resize();
 
-  // ---------- Interacción: arrastre + auto-rotación con inercia ----------
+  // ---------- Interacción: arrastre + giro manual con inercia ----------
   let rotY = 0, rotX = 0.12, velY = 0, velX = 0;
-  let dragging = false, lastX = 0, lastY = 0, idleTime = 0;
-  const hint = document.getElementById('hint');
+  let dragging = false, lastX = 0, lastY = 0;
 
   canvas.addEventListener('pointerdown', (e) => {
     dragging = true; lastX = e.clientX; lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
     canvas.classList.add('dragging');
-    hint.style.opacity = 0;
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!dragging) return;
@@ -201,7 +199,7 @@
     rotY += velY; rotX += velX;
     rotX = Math.max(-1.2, Math.min(1.2, rotX));
   });
-  const endDrag = () => { dragging = false; idleTime = 0; canvas.classList.remove('dragging'); };
+  const endDrag = () => { dragging = false; canvas.classList.remove('dragging'); };
   canvas.addEventListener('pointerup', endDrag);
   canvas.addEventListener('pointercancel', endDrag);
 
@@ -216,7 +214,6 @@
 
   // ---------- Bucle ----------
   const clock = new THREE.Clock();
-  const AUTO = 0.6; // rad/s
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
@@ -226,18 +223,13 @@
     beat += (target - beat) * Math.min(1, dt * 22); // suavizado para evitar saltos bruscos
 
     if (!dragging) {
-      idleTime += dt;
       velY *= Math.pow(0.04, dt);       // inercia
       velX *= Math.pow(0.04, dt);
       rotY += velY;
       rotX += velX;
-      rotX += (0.12 - rotX) * Math.min(1, dt * 0.8);
-      const k = Math.min(1, Math.max(0, (idleTime - 0.4) / 1.5));
-      rotY += AUTO * dt * k;            // retoma la rotación automática suavemente
     }
 
     root.rotation.set(rotX, rotY, 0);
-    ambient.rotation.y = time * 0.03;
     heart.material.uniforms.uTime.value = time;
     heart.material.uniforms.uBeat.value = beat;
     ambient.material.uniforms.uTime.value = time;

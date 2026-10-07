@@ -4,5 +4,5 @@
   .hint {
     position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
     font: 300 12px/1 system-ui, sans-serif; letter-spacing: .3em; text-transform: uppercase;
-    color: rgba(255, 150, 190, .35); pointer-events: none; transition: opacity 1.5s;
+    color: rgba(255, 150, 190, .6); pointer-events: none;
   }
