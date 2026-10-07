@@ -13,3 +13,4 @@
   color: rgba(150, 180, 255, .45); pointer-events: none;
 }
 .sign { transition: opacity .7s ease; }
+canvas.hover-const { cursor: pointer; }

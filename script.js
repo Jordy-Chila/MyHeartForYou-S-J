@@ -364,17 +364,42 @@
   starPts.renderOrder = -4;
   sky.add(starPts);
 
-  // ciclo: Tauro (pausa) -> Libra (pausa) -> Tauro ...
+  // ciclo: Tauro (pausa) -> Libra (pausa) -> Tauro ..., o cambio inmediato si el usuario toca la constelación
   const HOLD = 14, MORPH = 5;
-  const CYCLE = 2 * (HOLD + MORPH);
   const ease = (x) => x * x * x * (x * (x * 6 - 15) + 10);   // smootherstep
+  let skyCur = 0, skyMorphStart = -1, skyHoldStart = 0;
   const skyMix = (time) => {
-    const t = time % CYCLE;
-    if (t < HOLD) return 0;
-    if (t < HOLD + MORPH) return ease((t - HOLD) / MORPH);
-    if (t < 2 * HOLD + MORPH) return 1;
-    return 1 - ease((t - 2 * HOLD - MORPH) / MORPH);
+    if (skyMorphStart >= 0) {
+      const p = (time - skyMorphStart) / MORPH;
+      if (p >= 1) { skyCur = 1 - skyCur; skyMorphStart = -1; skyHoldStart = time; return skyCur; }
+      return skyCur === 0 ? ease(p) : 1 - ease(p);
+    }
+    if (time - skyHoldStart >= HOLD) skyMorphStart = time;
+    return skyCur;
   };
+  const startMorph = (time) => { if (skyMorphStart < 0) skyMorphStart = time; };
+
+  // ¿está el punto de pantalla (px) sobre alguna estrella o línea de la constelación visible?
+  const _v = new THREE.Vector3();
+  const toScreen = (x, y) => {
+    _v.set(x, y, SKY_Z);
+    sky.localToWorld(_v);
+    _v.project(camera);
+    return [(_v.x * 0.5 + 0.5) * window.innerWidth, (-_v.y * 0.5 + 0.5) * window.innerHeight];
+  };
+  const segDist = (px, py, ax, ay, bx, by) => {
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  };
+  function hitConstellation(px, py) {
+    const C = skyCur === 0 ? CA : CB;
+    const R = Math.max(22, Math.min(window.innerWidth, window.innerHeight) * 0.04);
+    const sc = C.slots.map(([x, y]) => toScreen(x, y));
+    for (const [sx, sy] of sc) if (Math.hypot(px - sx, py - sy) < R) return true;
+    for (const [i, j] of C.edges) if (segDist(px, py, sc[i][0], sc[i][1], sc[j][0], sc[j][1]) < R * 0.45) return true;
+    return false;
+  }
   const sign = document.getElementById('sign') || document.createElement('div');
   let signShown = 'A';
   function updateSign(mix) {
@@ -412,13 +437,16 @@
   let rotY = 0, rotX = 0.12, velY = 0, velX = 0;
   let dragging = false, lastX = 0, lastY = 0;
 
+  let downX = 0, downY = 0, downT = 0;
   canvas.addEventListener('pointerdown', (e) => {
+    downX = e.clientX; downY = e.clientY; downT = performance.now();
     dragging = true; lastX = e.clientX; lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
     canvas.classList.add('dragging');
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
+    if (!dragging) { canvas.classList.toggle('hover-const', hitConstellation(e.clientX, e.clientY)); return; }
+    canvas.classList.remove('hover-const');
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX; lastY = e.clientY;
     velY = dx * 0.006; velX = dy * 0.004;
@@ -426,7 +454,11 @@
     rotX = Math.max(-1.2, Math.min(1.2, rotX));
   });
   const endDrag = () => { dragging = false; canvas.classList.remove('dragging'); };
-  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointerup', (e) => {
+    const isClick = Math.hypot(e.clientX - downX, e.clientY - downY) < 6 && performance.now() - downT < 500;
+    endDrag();
+    if (isClick && hitConstellation(e.clientX, e.clientY)) startMorph(clock.elapsedTime);
+  });
   canvas.addEventListener('pointercancel', endDrag);
 
   // ---------- Latido (lub-dub) con pausa ----------
